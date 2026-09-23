@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giant-Scale On-Call</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f2ea; --panel:#fffdf8; --panel2:#f0ebe0; --ink:#1c1e23; --muted:#5d6370; --line:#dcd5c6;
+  --accent:#c2410c; --accent-ink:#fff; --accent-soft:#fbe3d4;
+  --good:#15803d; --good-soft:#dcf2e3; --bad:#b91c1c; --bad-soft:#fbe0e0; --warn:#a16207; --warn-soft:#fbf0cf;
+  --d:#1d4ed8; --q:#c2410c; --dead:#9ca3af; --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --ink:#e8e6e1; --muted:#9aa1ad; --line:#2b313c;
+    --accent:#fb8a3c; --accent-ink:#1a0d04; --accent-soft:#3a2416;
+    --good:#4ade80; --good-soft:#15301f; --bad:#f87171; --bad-soft:#3a1a1a; --warn:#facc15; --warn-soft:#352d10;
+    --d:#7aa2ff; --q:#fb8a3c; --dead:#4b5563; --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --ink:#e8e6e1; --muted:#9aa1ad; --line:#2b313c;
+  --accent:#fb8a3c; --accent-ink:#1a0d04; --accent-soft:#3a2416;
+  --good:#4ade80; --good-soft:#15301f; --bad:#f87171; --bad-soft:#3a1a1a; --warn:#facc15; --warn-soft:#352d10;
+  --d:#7aa2ff; --q:#fb8a3c; --dead:#4b5563; --shadow:none;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "IBM Plex Sans",system-ui,sans-serif}
+.mono,code,kbd{font-family:"IBM Plex Mono",ui-monospace,monospace}
+code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:.9em}
+a{color:var(--accent)}
+header.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+header.top .brand{font-weight:700;letter-spacing:.02em}
+header.top .brand span{color:var(--accent)}
+header.top .sp{flex:1}
+.clock{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--muted);white-space:nowrap}
+.clock b{color:var(--ink)}
+.bar{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;width:140px}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);max-width:1180px;margin:0 auto;gap:28px;padding:22px 18px 80px}
+nav.side{position:sticky;top:64px;align-self:start;min-width:0}
+nav.side ol{list-style:none;margin:0;padding:0}
+nav.side li button{all:unset;box-sizing:border-box;display:flex;gap:10px;align-items:center;width:100%;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px}
+nav.side li button:hover:not([disabled]){background:var(--panel2)}
+nav.side li button[aria-current="true"]{background:var(--accent-soft);font-weight:600}
+nav.side li button[disabled]{opacity:.45;cursor:not-allowed}
+nav.side .dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:11px;flex:none;font-family:"IBM Plex Mono",monospace}
+nav.side .dot.done{background:var(--good);border-color:var(--good);color:var(--panel)}
+nav.side .dot.now{border-color:var(--accent);color:var(--accent)}
+nav.side .meta{font-size:12px;color:var(--muted)}
+nav.side .foot{margin-top:18px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+nav.side .foot button{all:unset;cursor:pointer;color:var(--muted);text-decoration:underline}
+main{min-width:0;max-width:820px}
+h1{font-size:30px;line-height:1.2;margin:0 0 6px}
+h2{font-size:21px;margin:0 0 4px}
+h3{font-size:16px;margin:18px 0 6px}
+.kicker{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lede{color:var(--muted);margin:4px 0 18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:0 0 18px;box-shadow:var(--shadow)}
+.card.locked{opacity:.55;border-style:dashed;box-shadow:none;padding:14px 22px}
+.card.locked .phase-h{margin:0}
+.phase-h{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.phase-h .tag{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;border-radius:99px;background:var(--panel2);color:var(--muted);flex:none}
+.phase-h .tag.cur{background:var(--accent);color:var(--accent-ink)}
+.phase-h .tag.ok{background:var(--good-soft);color:var(--good)}
+.phase-h h2{flex:1}
+.why{font-size:13px;color:var(--muted);margin:-4px 0 12px;font-style:italic}
+.btn{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:9px;background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer;font-size:15px}
+.btn:hover{filter:brightness(1.07)}
+.btn[disabled]{opacity:.4;cursor:not-allowed;filter:none}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.small{padding:5px 11px;font-size:13px;color:var(--accent-ink)}
+.btn.ghost.small{color:var(--ink)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.q{border-top:1px solid var(--line);padding:14px 0 4px}
+.q:first-child{border-top:0;padding-top:0}
+.q .qt{font-weight:500;margin-bottom:8px}
+.opts{display:flex;flex-direction:column;gap:6px}
+.opt{all:unset;box-sizing:border-box;padding:9px 12px;border:1px solid var(--line);border-radius:9px;cursor:pointer;background:var(--panel)}
+.opt:hover:not([disabled]){border-color:var(--accent)}
+.opt.sel{border-color:var(--accent);background:var(--accent-soft)}
+.opt.right{border-color:var(--good);background:var(--good-soft)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opt[disabled]{cursor:default}
+.conf{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:10px 0 6px;font-size:13px;color:var(--muted)}
+.chip{all:unset;cursor:pointer;padding:4px 10px;border-radius:99px;border:1px solid var(--line);font-size:13px;color:var(--ink)}
+.chip.sel{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.chip[disabled]{cursor:default}
+.fb{margin-top:10px;padding:10px 12px;border-radius:9px;font-size:14px}
+.fb.good{background:var(--good-soft)} .fb.bad{background:var(--bad-soft)} .fb.info{background:var(--panel2)} .fb.warn{background:var(--warn-soft)}
+.fb b.g{color:var(--good)} .fb b.r{color:var(--bad)}
+input[type=text],input[type=number],input[type=password],textarea,select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px}
+textarea{width:100%;min-height:150px;resize:vertical;line-height:1.5}
+input[type=range]{accent-color:var(--accent);width:100%}
+.num-in{width:120px}
+.small{font-size:13px;color:var(--muted)}
+.notes{background:var(--panel2);border-radius:10px;padding:14px 18px;margin:10px 0}
+.notes ul{margin:0;padding-left:20px}
+.notes li{margin:5px 0}
+.pdfref{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:10px;margin:8px 0 12px}
+.pdfref .big{white-space:nowrap;font-family:"IBM Plex Mono",monospace;font-size:22px;color:var(--accent);font-weight:600}
+.rub{list-style:none;padding:0;margin:8px 0}
+.rub li{display:flex;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.rub li:first-child{border-top:0}
+.rub .st{flex:none;font-family:"IBM Plex Mono",monospace;font-size:11px;padding:2px 7px;border-radius:5px;height:fit-content;margin-top:2px}
+.st.hit{background:var(--good-soft);color:var(--good)} .st.partial{background:var(--warn-soft);color:var(--warn)} .st.miss{background:var(--bad-soft);color:var(--bad)}
+.lab{border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0 16px;background:var(--panel2)}
+.lab h3{margin-top:0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+.stat .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.stat .v{font-family:"IBM Plex Mono",monospace;font-size:20px;font-weight:600}
+.v.good{color:var(--good)} .v.bad{color:var(--bad)} .v.warn{color:var(--warn)}
+.nodes{display:grid;gap:8px}
+.node{all:unset;box-sizing:border-box;border:2px solid var(--line);border-radius:9px;padding:8px;background:var(--panel);cursor:pointer;text-align:center;font-family:"IBM Plex Mono",monospace;font-size:12px;min-width:0}
+.node.dead{background:repeating-linear-gradient(45deg,var(--panel2),var(--panel2) 5px,var(--panel) 5px,var(--panel) 10px);color:var(--dead);border-style:dashed}
+.node.hot{border-color:var(--bad)}
+.node .ld{height:5px;border-radius:3px;background:var(--line);margin-top:5px;overflow:hidden}
+.node .ld>i{display:block;height:100%;background:var(--good)}
+.node.hot .ld>i{background:var(--bad)}
+.ctrl{display:grid;grid-template-columns:150px 1fr 70px;gap:10px;align-items:center;margin:6px 0;font-size:14px}
+.ctrl output{font-family:"IBM Plex Mono",monospace;text-align:right}
+svg text{fill:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:11px}
+.done-flag{font-size:13px;padding:6px 10px;border-radius:8px;display:inline-block;margin-top:6px}
+.done-flag.ok{background:var(--good-soft);color:var(--good)}
+.done-flag.todo{background:var(--warn-soft);color:var(--warn)}
+.gate{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.gate .small{flex:1}
+table.t{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0}
+table.t th,table.t td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+table.t td.n,table.t th.n{text-align:right;font-family:"IBM Plex Mono",monospace}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.pill{font-family:"IBM Plex Mono",monospace;font-size:12px;padding:3px 9px;border-radius:99px;background:var(--panel);border:1px solid var(--line)}
+.pill.ok{background:var(--good-soft);border-color:var(--good);color:var(--good)}
+.pill.no{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.match-row{display:grid;grid-template-columns:1fr 210px;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.match-row:first-child{border-top:0}
+.match-row.ok select{border-color:var(--good)} .match-row.no select{border-color:var(--bad)}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);max-width:520px;width:calc(100% - 32px);padding:22px}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+.method{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0}
+.method div{background:var(--panel2);border-radius:10px;padding:10px 12px;font-size:14px}
+.method b{display:block;font-size:13px;color:var(--accent);font-family:"IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.05em}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.big-num{font-family:"IBM Plex Mono",monospace;font-size:34px;font-weight:600}
+@media (max-width:860px){
+  .layout{grid-template-columns:1fr;padding:14px 16px 60px;gap:10px}
+  nav.side{position:static}
+  nav.side ol{display:flex;overflow-x:auto;gap:4px;padding-bottom:6px}
+  nav.side li button{width:auto;white-space:nowrap}
+  nav.side .meta,nav.side .foot{display:none}
+  .ctrl{grid-template-columns:1fr 60px}
+  .ctrl label{grid-column:1/-1}
+  .match-row{grid-template-columns:1fr}
+  header.top .bar{display:none}
+  .card{padding:16px}
+  table.t{font-size:12px}
+  table.t th,table.t td{padding:5px 4px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">GIANT-SCALE <span>ON-CALL</span></div>
+  <div class="sp"></div>
+  <div class="bar" title="Overall progress"><i id="progbar" style="width:0"></i></div>
+  <div class="clock" id="clock"></div>
+  <button class="btn ghost small" id="settingsBtn">AI tutor</button>
+</header>
+<div class="layout">
+  <nav class="side" id="side"></nav>
+  <main id="main"></main>
+</div>
+
+<dialog id="settings">
+  <h2>AI tutor settings</h2>
+  <p class="small">The AI tutor grades your closed-book explanations, asks follow-up questions, and reviews your final design memo. Calls go straight from your browser to DeepSeek. The key is saved only in this browser's localStorage. Without a key, everything still works: you grade yourself against the rubric instead.</p>
+  <label class="small">DeepSeek API key</label>
+  <input type="password" id="apiKey" style="width:100%" placeholder="sk-…" autocomplete="off">
+  <div style="height:8px"></div>
+  <label class="small">Model</label>
+  <input type="text" id="apiModel" style="width:100%" placeholder="deepseek-chat">
+  <p class="small">Use <code>deepseek-chat</code> (the latest non-reasoning model) unless you have a reason to change it. One full run costs a few cents.</p>
+  <div class="row"><button class="btn" id="saveKey">Save</button><button class="btn ghost" id="testKey">Test connection</button><button class="btn ghost" id="closeSettings">Close</button></div>
+  <div id="testOut" class="small" style="margin-top:10px"></div>
+</dialog>
+
+<script>
+"use strict";
+/* ============================== utilities ============================== */
+const $ = (s, el = document) => el.querySelector(s);
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k === "html") el.innerHTML = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) {
+    if (c == null || c === false) continue;
+    el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const pct = (x, d = 1) => (x * 100).toFixed(d) + "%";
+const words = s => (s.trim().match(/\S+/g) || []).length;
+const svgNS = "http://www.w3.org/2000/svg";
+function s(tag, attrs, ...kids) {
+  const el = document.createElementNS(svgNS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
+  for (const c of kids) el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return el;
+}
+
+/* ============================== state ============================== */
+const STORE = "giantscale-oncall-v1";
+const fresh = () => ({ v: 1, settings: { key: "", model: "deepseek-chat" }, cur: "intro", active: 0, items: {}, mods: {}, final: { phase: 0 }, deck: [], preDone: false });
+let S = (() => { try { const x = JSON.parse(localStorage.getItem(STORE)); if (x && x.v === 1) return Object.assign(fresh(), x); } catch (e) {} return fresh(); })();
+function save() { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) {} }
+const DEV = /[?&]dev=1/.test(location.search);
+function MS(id) { return S.mods[id] || (S.mods[id] = { phase: 0, labs: {}, explain: { attempts: [] } }); }
+function addCard(front, back, src) {
+  if (S.deck.some(c => c.front === front)) return;
+  S.deck.push({ front, back, src }); save();
+}
+
+/* ============================== AI ============================== */
+const hasAI = () => !!(S.settings.key || "").trim();
+async function ai(system, user, maxTokens = 900) {
+  const res = await fetch("https://api.deepseek.com/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + S.settings.key.trim() },
+    body: JSON.stringify({
+      model: (S.settings.model || "deepseek-chat").trim(), temperature: 0.2, max_tokens: maxTokens,
+      response_format: { type: "json_object" },
+      messages: [{ role: "system", content: system }, { role: "user", content: user }]
+    })
+  });
+  if (!res.ok) { let t = ""; try { t = await res.text(); } catch (e) {} throw new Error("API " + res.status + " " + t.slice(0, 200)); }
+  const j = await res.json();
+  let c = j.choices?.[0]?.message?.content || "";
+  c = c.replace(/^```(?:json)?\s*|\s*```$/g, "");
+  return JSON.parse(c);
+}
+const SYS = `You are an expert distributed-systems tutor working with a learner on Eric Brewer's 2001 IEEE Internet Computing paper "Lessons from Giant-Scale Services". Key facts from the paper: basic model (clients, IP network, load manager, servers, persistent data store, optional backplane; read-mostly, query-driven, clusters); load management (round-robin DNS doesn't hide dead nodes until TTL expiry; layer-4/7 switches in pairs with hot failover detect down nodes; front-end nodes track sessions; smart clients enable cross-site failover); uptime=(MTBF-MTTR)/MTBF, focus on MTTR; yield=queries completed/offered; harvest=data available/complete data; DQ principle: data per query x queries per second -> constant, bounded by a physical data-movement bottleneck, measurable, scales linearly with nodes; replication maps faults to reduced capacity/yield, partitioning to reduced harvest; load redirection: k of n failures -> overload factor n/(n-k); replication's cost is DQ not disk; replicate key data, randomize partitioning; graceful degradation: admission control limits Q (cost-based, priority/value-based e.g. Datek), dynamic database reduction/reduced freshness lower D; disaster tolerance: sites x replicas, lose 1 of 3 sites -> +50% load -> reduce D to 2/3 (Inktomi uses 50% for any disaster); smart clients beat slow DNS failover; online evolution: upgrades are controlled failures, deltaDQ = DQ*u, staging area, fast reboot vs rolling upgrade (versions must be compatible) vs big flip (half at a time; any change incl. schema, relocation); all three have the same DQ loss.
+Judge meaning, not wording. Be rigorous but warm and concise. Reply ONLY with a JSON object.`;
+
+/* ============================== content ============================== */
+const CONF = [["g", "Guessing"], ["f", "Fairly sure"], ["c", "Certain"]];
+const Q = {
+  /* ---------- pretest (reused as post-test) ---------- */
+  P1: { t: "mcq", q: "A two-node cluster runs near full utilization. One node fails. Which statement is true?", o: ["If the data is replicated, harvest and yield both stay at 100%.", "Replicated: harvest stays at 100% but yield drops toward 50%. Partitioned: yield stays at 100% but harvest drops to 50%.", "If the data is partitioned, harvest and yield both drop to 50%.", "Either way, half the data becomes unreachable."], a: 1, x: "Both designs lose half their DQ. Replicas keep D and lose Q (so yield drops); partitions keep Q and lose D (so harvest drops). The traditional view that replication is better assumes spare capacity." },
+  P2: { t: "mcq", q: "For a service that ships new features every few weeks, which is the more practical way to improve uptime?", o: ["Raise MTBF with longer soak testing", "Cut MTTR, the time to detect and repair failures", "Neither; uptime is set by hardware quality", "Freeze all feature work"], a: 1, x: "MTTR can be measured in minutes and improved on fast debug cycles. Proving a better MTBF takes weeks of testing, and every new feature erodes it. Brewer: focus on MTTR at least as much as MTBF." },
+  P3: { t: "mcq", q: "Compare a 10-minute outage at 4 AM with the same outage at the 8 PM peak. Which metric tells them apart?", o: ["Uptime", "Yield", "MTBF", "None; they are equivalent"], a: 1, x: "Uptime counts seconds, and every second counts the same. Yield counts the queries that failed, so an outage at peak costs far more yield." },
+  P4: { t: "mcq", q: "A search cluster is saturated. You temporarily search only half the index for each query. Roughly what happens to the queries per second it can handle?", o: ["Nothing changes; the bottleneck is CPU, not data", "It rises about 10%", "It roughly doubles", "It halves"], a: 2, x: "DQ principle: D × Q ≈ constant. Halving D roughly doubles Q. This is dynamic database reduction, which buys yield by giving up harvest." },
+  P5: { t: "mcq", q: "You must change the database schema across the whole cluster. Which upgrade approach is ruled out?", o: ["Fast reboot", "Rolling upgrade", "Big flip", "None of them"], a: 1, x: "In a rolling upgrade, old and new versions run side by side, so they must be compatible. Schema, namespace, and intracluster protocol changes break that assumption." },
+  P6: { t: "mcq", q: "With round-robin DNS, one of four web servers crashes. What happens next?", o: ["Clients that were handed the dead address keep failing until their cached DNS entry expires, which can take hours", "DNS immediately stops handing out the dead address", "All traffic fails until an operator intervenes", "Browsers transparently retry another server, so nobody notices"], a: 0, x: "Round-robin DNS balances load but does not hide dead nodes. Cached mappings keep pointing at the dead server until the TTL expires, and many browsers make this worse by mishandling expiration." },
+
+  /* ---------- retrieval (interleaved warm-ups) ---------- */
+  r1a: { t: "mcq", q: "Why do layer-4 switches usually come in pairs?", o: ["One handles HTTP, the other TCP", "Hot failover, so the load manager itself isn't a single point of failure", "To double throughput beyond 20 Gb/s", "One per data center"], a: 1, x: "The pair supports hot failover, so one switch takes over automatically if the other dies." },
+  r1b: { t: "mcq", q: "Your service's clients are other programs. They know about several physical clusters and switch between them based on load. What is this approach called?", o: ["Round-robin DNS", "Layer-7 switching", "Smart clients", "Backplane routing"], a: 2, x: "Smart clients take part in load management themselves. That makes switching between sites easy, which helps with disaster tolerance and overload." },
+  r1c: { t: "mcq", q: "In a partitioned search cluster, how does a query reach the node that holds the right data?", o: ["Round-robin DNS picks a node at random", "A layer-7 switch parses the URL, or the backplane routes the request", "Clients cache each node's IP address", "It doesn't need to, because all nodes are identical"], a: 1, x: "Partitioned nodes are no longer identical, so requests must be steered: by a layer-7 switch that parses URLs, or over the backplane (as in clustered web caches)." },
+  r2a: { t: "mcq", q: "How is yield defined?", o: ["The fraction of time the site is up", "Queries completed ÷ queries offered", "Data available ÷ complete data", "MTBF ÷ (MTBF + MTTR)"], a: 1, x: "Yield = queries completed / queries offered. It maps directly to user experience." },
+  r2b: { t: "mcq", q: "Why does constant feature churn push Brewer toward MTTR rather than MTBF?", o: ["New features raise MTBF automatically", "New features tend to lower MTBF but barely affect MTTR, and MTTR can be measured in minutes", "MTTR is what customers see on their bill", "MTBF can't be computed for clusters"], a: 1, x: "MTTR is more stable across releases and much faster to measure and improve." },
+  r2c: { t: "num", q: "Over one day, 50M queries are offered and 49.6M complete. What is the yield, in %?", a: 99.2, tol: 0.05, u: "%", hint: "Yield = completed ÷ offered." },
+  r3a: { t: "num", q: "A saturated service is at its DQ limit. If each query's data (D) is cut to 40% of normal, by what factor can Q rise?", a: 2.5, tol: 0.02, u: "×", hint: "D × Q is constant, so Q scales by 1 / 0.4." },
+  r3b: { t: "num", q: "A 50-node cluster of identical nodes loses 5 nodes. In the best case, what % of its DQ remains?", a: 90, tol: 0.5, u: "%", hint: "Best case is a linear reduction: 45 / 50." },
+  r4a: { t: "num", q: "A replica group of 4 nodes loses 1. What is the overload factor on the survivors, in % of normal load?", a: 133.3, tol: 0.6, u: "%", hint: "Overload factor = n / (n − k)." },
+  r4b: { t: "mcq", q: "In a partitioned, unreplicated store, a node failure mainly reduces:", o: ["yield", "harvest", "MTTR", "nothing"], a: 1, x: "Part of the database disappears, but the remaining capacity in queries/sec is the same, so harvest drops." },
+  r5a: { t: "mcq", q: "Which graceful-degradation lever preserves harvest?", o: ["Dynamic database reduction", "Admission control (limit Q)", "Serving staler cached data", "Randomized partitioning"], a: 1, x: "Admission control rejects some queries so that the admitted ones still get full D, which means full harvest. Reducing D does the opposite." },
+  r6a: { t: "mcq", q: "Why don't layer-4 switches help when a whole data center is lost?", o: ["They are too slow", "They work within one site, and losing the cluster loses them too, so you need DNS changes or smart clients", "They can't parse URLs", "They only work with replicated data"], a: 1, x: "Switches hide failed nodes inside a site. They can't redirect traffic to another site after the entire cluster is gone." },
+
+  /* ---------- M1 ---------- */
+  m1p: { t: "mcq", q: "Nearly every giant-scale service runs on clusters of commodity machines. Which reason for using clusters does Brewer say matters LEAST at giant scale?", o: ["Absolute scalability (nothing else reaches the required size)", "Independent faults", "Incremental scalability", "Hardware cost and performance"], a: 3, x: "Hardware cost and performance are \"not really issues\". No alternative reaches the required scale, and bandwidth and operations costs dwarf hardware costs. What matters are independent faults and incremental scalability." },
+  m1n1: { t: "num", q: "Round-robin DNS, 4 equal servers, one crashes. Immediately after the crash, what % of requests fail?", a: 25, tol: 0.5, u: "%", hint: "Clients are spread evenly over the 4 addresses, and one address is dead." },
+  m1n2: { t: "num", q: "TTL = 60 min. Ops removes the dead IP from DNS 10 minutes after the crash, and cached entries then expire at random times within one TTL. How many minutes after the crash is no client still using the dead address? (The lab simulates exactly this setup.)", a: 70, tol: 1, u: "min", hint: "Detection delay + one full TTL." },
+  m1n3: { t: "num", q: "End-user devices run at under 4% utilization. Infrastructure resources reach about 80%. By what factor does moving work into the infrastructure improve efficiency?", a: 20, tol: 0.5, u: "×", hint: "80 ÷ 4." },
+  m1m: { t: "match", q: "Match each situation to the load-management approach that fits it best.", opts: ["Round-robin DNS", "Layer-4 switch pair", "Layer-7 switch", "Custom front-end nodes", "Smart clients"], pairs: [
+    ["Tiny site: all content replicated on every node, minimal budget", 0],
+    ["Hide a crashed node inside the site at wire speed, with no single point of failure", 1],
+    ["Send queries for partition 17 to the node that holds partition 17 by parsing the URL", 2],
+    ["Track each shopper's session state while routing (the Wal-Mart approach)", 3],
+    ["The whole data center loses power, and traffic must move to another city immediately", 4]] },
+
+  /* ---------- M2 ---------- */
+  m2p: { t: "mcq", q: "A search engine answers a query while 3 of its 40 index partitions are down, so the results silently miss some pages. By the traditional uptime metric, was the site \"up\"?", o: ["Yes. Uptime counts it as up, and it can't see that the answer was degraded", "No. Uptime counts it as down", "Uptime counts it as 92.5% up", "Uptime doesn't apply to search engines"], a: 0, x: "Uptime is binary per second. Brewer adds harvest (data available / complete data) to capture incomplete answers, and yield to capture failed queries." },
+  m2n1: { t: "num", q: "MTBF = 1 week (10,080 min) and MTTR = 10 min. Using uptime = (MTBF − MTTR) / MTBF, what is the uptime in %? (2 decimals)", a: 99.90, tol: 0.011, u: "%", hint: "(10080 − 10) / 10080." },
+  m2q1: { t: "mcq", q: "Same system. Which improves uptime more: halving MTTR or doubling MTBF?", o: ["Halving MTTR", "Doubling MTBF", "They are exactly the same", "Neither changes uptime"], a: 2, x: "Uptime = 1 − MTTR/MTBF, and both changes halve that ratio. The payoff is the same, but halving MTTR takes days of quick debug cycles, while proving a doubled MTBF takes weeks of testing that each release then undoes." },
+  m2n2: { t: "num", q: "A query fans out to 40 equal partitions, but 3 are down, so the answer comes from the other 37. What is the harvest, in %?", a: 92.5, tol: 0.05, u: "%", hint: "Harvest = data available ÷ complete data." },
+  m2n3: { t: "num", q: "\"Four nines\" (0.9999 uptime) allows at most how many seconds of downtime per week?", a: 60.5, tol: 1.1, u: "s", hint: "A week has 604,800 seconds; multiply by 0.0001." },
+
+  /* ---------- M3 ---------- */
+  m3p: { t: "mcq", q: "Inktomi wants to know how a software optimization will change the capacity of a 100-node production cluster. What is the most reliable approach?", o: ["Deploy it to production and watch", "Measure DQ on a 4-node test cluster with a load generator, then scale linearly", "Estimate from CPU benchmark scores", "It can't be predicted in advance"], a: 1, x: "DQ normally scales linearly with node count, so small test clusters predict large ones. Inktomi used 4-node clusters to predict improvements on 100-node clusters." },
+  m3n0: { t: "num", q: "In the lab: 20 nodes (100 DQ units each), 5 of them failed, 1,800 queries/s offered. What is the largest D (% of the database searched per query) that still gives 100% yield?", a: 83.3, tol: 0.6, u: "%", hint: "Remaining DQ = 15 × 100. Set D × 1800 ≤ that." },
+  m3n1: { t: "num", q: "A 4-node test cluster shows an optimization raising DQ from 400 to 460 units. Production DQ was 10,000. Predict production DQ after the optimization.", a: 11500, tol: 5, u: "units", hint: "The relative change (+15%) carries over linearly." },
+  m3n2: { t: "num", q: "A 20-node cluster (full database per query) loses 3 nodes. In the best case, what fraction of its original Q remains, in %?", a: 85, tol: 0.5, u: "%", hint: "D stays fixed and DQ drops linearly, so Q drops linearly." },
+  m3n3: { t: "num", q: "Capacity planning. Your 50 nodes run at their DQ limit. Next year: +60% queries, and the index grows 25% (so D grows 25%). New nodes have 30% more DQ each, and you'll replace every node. How many new nodes do you need? (Round up.)", a: 77, tol: 0.5, u: "nodes", hint: "Required DQ = 1.6 × 1.25 × today's DQ. Each new node = 1.3 old nodes." },
+  m3q1: { t: "mcq", q: "Which service is the DQ principle LEAST suited to?", o: ["A web search engine", "Web-based e-mail", "A chat service dominated by long-latency external actions", "A clustered web cache"], a: 2, x: "DQ is meant for data-intensive sites. Compute-bound sites and sites with long-latency external actions (such as chat) behave differently." },
+
+  /* ---------- M4 ---------- */
+  m4p: { t: "mcq", q: "Disks are cheap. What is the real cost of adding a second full replica of your data?", o: ["The disk space", "Enough extra DQ capacity to actually serve queries from it", "Network bandwidth for writes", "Nothing meaningful"], a: 1, x: "\"Replication on disk is cheap, but accessing the replicated data requires DQ points.\" True replication needs twice the DQ, not just twice the disk." },
+  m4n1: { t: "num", q: "Table 1: a replica group of n = 5 loses k = 2 nodes. What is the overload factor on the survivors, in % of normal load?", a: 166.7, tol: 0.6, u: "%", hint: "n / (n − k)." },
+  m4n2: { t: "num", q: "A replica group of 4 nodes runs at 70% utilization. What is the most node failures it can take while keeping 100% yield?", a: 1, tol: 0, u: "failures", hint: "Need 0.7 × n/(n − k) ≤ 1." },
+  m4n3: { t: "num", q: "At 60% utilization, what is the minimum replication factor R so that ANY 2 node failures keep 100% yield and 100% harvest? (Check your answer in the sandbox.)", a: 5, tol: 0, u: "replicas", hint: "The worst case is both failures in the same replica group: 0.6 × R/(R − 2) ≤ 1." },
+  m4q1: { t: "mcq", q: "Why spread data across partitions pseudo-randomly (by hash)?", o: ["It makes each query faster", "Lost harvest becomes a random subset of average-value data, so the average and worst-case losses match; it also avoids hot spots", "It removes the need for replication", "It lets DNS route queries"], a: 1, x: "Randomization turns a partition loss into losing a random sample, and it spreads load evenly. Inktomi, e-mail systems, and web caches all use it." },
+  m4q2: { t: "mcq", q: "When does replication genuinely cost more DQ than partitioning?", o: ["Always", "Under heavy write traffic, which is rare for giant-scale services", "When disks are expensive", "Never"], a: 1, x: "Every write must reach every replica. Giant-scale services are read-mostly, so this exception rarely applies." },
+
+  /* ---------- M5 ---------- */
+  m5p: { t: "mcq", q: "Moviephone.com added 10× capacity to sell tickets for Star Wars: The Phantom Menace. What happened?", o: ["It handled the rush comfortably", "It was still overloaded", "It saved money by using only 2× in the end", "It moved ticket sales to smart clients"], a: 1, x: "Single-event bursts can far exceed any reasonable build-out. That's why graceful degradation, meaning deciding in advance what gives under saturation, is essential." },
+  m5q1: { t: "mcq", q: "What does serving stock quotes from a cache refreshed every 60 s, instead of live, do?", o: ["Raises harvest and lowers yield", "Raises yield (less work per query) at the cost of harvest, because answers don't reflect the current data", "Nothing to DQ", "Lowers both"], a: 1, x: "Reduced freshness lowers D per query, which raises Q and so yield. Cached answers don't reflect the current database, which counts as lower harvest." },
+  m5q2: { t: "mcq", q: "Why can denying one expensive query raise overall yield?", o: ["Expensive queries are usually spam", "Yield counts queries, not data: the DQ freed by one expensive query can complete several cheap ones", "It reduces MTTR", "It raises the denied query's harvest"], a: 1, x: "This is cost-based admission control (Inktomi). The AC policy changes both average D and Q, and it can raise both harvest and yield overall." },
+
+  /* ---------- M6 ---------- */
+  m6p: { t: "mcq", q: "You run three data centers with two replicas each. An earthquake takes out one site. How much more traffic must each surviving site handle?", o: ["+33%", "+50%", "+100%", "None, because the replicas absorb it"], a: 1, x: "Losing 2 of 6 replicas gives an overload factor of n/(n−k) = 6/4, so each survivor handles 50% more. That almost certainly saturates them, and graceful degradation takes over." },
+  m6n1: { t: "num", q: "In that 3-site case, the sites were already at capacity. To keep 100% yield, reduce D to what % of normal?", a: 66.7, tol: 0.6, u: "%", hint: "Q must rise by 3/2, so D must fall to 2/3." },
+  m6n2: { t: "num", q: "4 equal sites at capacity, and one is lost. D must drop to what % to keep 100% yield?", a: 75, tol: 0.5, u: "%", hint: "(S − 1) / S." },
+  m6n3: { t: "num", q: "2 equal sites at capacity, and one is lost. D must drop to what %?", a: 50, tol: 0.5, u: "%", hint: "(S − 1) / S." },
+  m6n4: { t: "num", q: "You must survive losing any one site at full load while keeping harvest ≥ 80% and yield at 100%. What is the minimum number of equal sites?", a: 5, tol: 0, u: "sites", hint: "(S − 1)/S ≥ 0.8." },
+  m6q1: { t: "mcq", q: "After losing a site, what's the fastest way to steer users to the surviving sites?", o: ["Change the DNS records", "Smart clients that already know alternative sites", "Layer-4 switch failover", "A rolling upgrade"], a: 1, x: "DNS failover can take hours, and switches die with the site. Smart clients redirect immediately, which Brewer calls \"the most compelling reason to use smart clients\"." },
+  m6q2: { t: "mcq", q: "Inktomi's actual plan cuts D to 50% for ANY disaster, rather than to 2/3 in the 3-site case. What is the trade-off?", o: ["It's more aggressive and riskier", "It's simpler and planned in advance, but it gives up more harvest than strictly necessary", "It preserves more harvest", "It avoids the need for graceful degradation"], a: 1, x: "It's one rule that works for any single-site loss. The cost is more harvest lost than the exact calculation would require." },
+
+  /* ---------- M7 ---------- */
+  m7p: { t: "mcq", q: "Fast reboot, rolling upgrade, big flip: which loses the most total DQ for a given upgrade?", o: ["Fast reboot", "Rolling upgrade", "Big flip", "All the same"], a: 3, x: "ΔDQ = n · u · (DQ per node) = DQ · u for all three. They differ only in how that loss is spread over time (Figure 5: equal areas)." },
+  m7n1: { t: "num", q: "100 nodes, and each upgrade takes u = 6 min. With a fast reboot, how many minutes is the whole site down?", a: 6, tol: 0, u: "min", hint: "All nodes upgrade at once." },
+  m7n2: { t: "num", q: "Same cluster, rolling upgrade, one node at a time. How many minutes does the wave take?", a: 600, tol: 0, u: "min", hint: "n × u, with 1% of DQ missing the whole time." },
+  m7n3: { t: "num", q: "Same cluster, big flip. For how many minutes does the cluster run at 50% DQ?", a: 12, tol: 0, u: "min", hint: "Each half takes u (upgraded in parallel), one half after the other." },
+  m7m: { t: "match", q: "Change tickets: choose the best upgrade approach for each.", opts: ["Fast reboot", "Rolling upgrade", "Big flip"], pairs: [
+    ["Weekly bug fix to the query server; protocol unchanged; replicated cluster; daytime", 1],
+    ["New database schema and a changed intracluster protocol; the site must stay online", 2],
+    ["Physically move 100 nodes between cages in the same data center", 2],
+    ["Small internal service, fully automated staging, deploy at 3 AM, simplest possible", 0],
+    ["Compatible upgrade to a partitioned index; a brief harvest dip per node is acceptable", 1]] },
+  m7q1: { t: "mcq", q: "What does a staging area buy you?", o: ["Double the capacity", "New and old versions coexist on each node, so the upgrade is a quick controlled reboot and reverting is easy", "It lets rolling upgrades handle schema changes", "It removes the need for a load manager"], a: 1, x: "With staging, upgrade downtime stays within the normal MTTR, and you can roll back quickly. That matters because live traffic tends to expose new bugs." },
+
+  /* ---------- Incident night ---------- */
+  I1: { t: "num", q: "02:10: Your unreplicated index is split into 40 equal partitions, and 2 nodes die. What is the harvest, in %?", a: 95, tol: 0.1, u: "%", hint: "38 / 40." },
+  I2: { t: "mcq", q: "02:25: A 3-node replica group at 75% utilization loses one node. What happens?", o: ["Nothing; replication covers it", "The survivors hit 112.5% load, so yield drops to about 89% unless you degrade gracefully", "Harvest drops to 67%", "The survivors run at exactly 100%"], a: 1, x: "0.75 × 3/2 = 1.125. Replication preserved the data, but not the DQ needed to serve it." },
+  I3: { t: "mcq", q: "03:00: A VP wants availability reported only as uptime nines. What is your best counter-argument?", o: ["Uptime is fine", "Report yield and harvest: yield weights outages by load (peak ≠ 3 AM), and harvest captures partial answers", "Report MTBF instead", "Report CPU utilization"], a: 1, x: "Decide your availability metrics and measure them daily. Harvest and yield are more useful than uptime alone." },
+  I4: { t: "mcq", q: "03:40: The team proposes spending a quarter on soak tests to double MTBF. What is Brewer's advice?", o: ["Great idea; MTBF is what matters", "Invest at least as much in MTTR: it's faster to measure and improve, and releases keep eroding MTBF", "Stop shipping features", "Buy more expensive hardware"], a: 1, x: "Focus on MTTR at least as much as MTBF." },
+  I5: { t: "num", q: "04:15: Ticket frenzy. Offered load is 2.5× your search cluster's DQ capacity. To keep 100% yield using database reduction, D must drop to at most what % of normal?", a: 40, tol: 0.5, u: "%", hint: "1 / 2.5." },
+  I6: { t: "mcq", q: "05:00: Tonight's release changes the intracluster protocol. Which plan is valid?", o: ["A rolling upgrade", "A big flip (or an off-peak fast reboot)", "Upgrade half the nodes and leave them", "A rolling upgrade with extra replicas"], a: 1, x: "Versions that can't coexist rule out a rolling upgrade. The big flip and the fast reboot each run only one version at a time." },
+  I7: { t: "mcq", q: "05:30: A site went dark, and users' resolvers still point at it for hours. What would have made failover immediate?", o: ["A lower MTBF", "Smart clients", "A layer-7 switch at the dead site", "More replicas at the dead site"], a: 1, x: "Smart clients redirect between sites automatically and immediately." },
+  I8: { t: "num", q: "06:00: A 4-node test shows that new compression cuts the data moved per query by 20%. What change in peak queries/sec do you predict for the 100-node cluster, in %?", a: 25, tol: 0.5, u: "%", hint: "Q ∝ 1/D, and 1/0.8 = 1.25." },
+  I9: { t: "mcq", q: "06:30: Your key data (the 1% most-queried documents) lives in one partition. What is the cheapest way to protect it?", o: ["Replicate everything", "Replicate just the key data onto other nodes, so a failure costs one of the less important partitions instead", "Move it to RAID", "Use admission control"], a: 1, x: "Vary replication by importance. You still lose 1/n of the data, but it's always a less important partition." }
+};
+
+const MODS = [
+  { id: "m1", code: "01", title: "The Basic Model & Load Management", min: 16,
+    warm: [], predict: "m1p",
+    pages: { j: "pp. 46–49", pdf: "PDF pages 1–4", sec: "\"The Basic Model\", the sidebar \"Clusters in Giant-Scale Services\", and \"Load Management\" (stop at \"High Availability\"). Look closely at Figures 1–3." },
+    notes: [
+      "Scope: single-site, single-owner, well-connected clusters. Databases, WAN issues, and security are deliberately left out.",
+      "Advantages of infrastructure services include access from anywhere, many device types, groupware, <b>lower cost</b> (devices run under 4% utilization vs about 80% for infrastructure, roughly 20×), and <b>simplified updates</b>.",
+      "Assumptions: limited control over clients and the network, <b>query-driven</b> traffic, <b>read-mostly</b> workloads (reads far outnumber updates, even in e-commerce), and everything runs on clusters.",
+      "Six components: clients, the best-effort IP network, the <b>load manager</b> (indirection from the external name to physical servers that hides faults and balances load), servers, the persistent data store (replicated or partitioned), and an optional <b>backplane</b>.",
+      "Why clusters: absolute scalability, <b>independent faults</b>, and <b>incremental scalability</b>. Hardware cost and performance are <i>not</i> the real driver.",
+      "Load management evolved in steps. <b>Round-robin DNS</b> balances load but doesn't hide dead nodes until the TTL expires. <b>Layer-4/7 switches</b> come in hot-failover pairs, detect down nodes through TCP, and layer-7 can parse URLs. <b>Front-end nodes</b> track sessions. <b>Smart clients</b> fail over across sites.",
+      "Fig 2 is a web farm: round-robin DNS with full replication, so a fault costs capacity only. Fig 3 is a search cluster: layer-4 switches with partitioned data and a backplane, so a fault costs part of the data."
+    ],
+    explain: {
+      prompt: "Closed book. Explain what a load manager is for, and trace how load management evolved from round-robin DNS to smart clients. What problem does each approach solve, and what limitation remains?",
+      rubric: [
+        "A load manager puts a level of indirection between the service's external name and the servers' physical addresses, so the name stays available when servers fail. It also balances load.",
+        "Round-robin DNS balances load but doesn't hide dead nodes: clients with a cached address keep failing until the mapping (TTL) expires, which can take hours.",
+        "Layer-4/7 switches detect down nodes and hide them. They're deployed in pairs with hot failover. Layer-7 switches can parse URLs to route requests to the right partition.",
+        "Custom front-end nodes act as software layer-7 routers and can track per-user session state.",
+        "Smart clients take part in load management, which enables fast failover between physical sites (disasters, overload). A switch inside one site can't do that."
+      ],
+      model: "A load manager decouples the service's public name from its physical servers, so the name stays available when individual servers die, and it spreads load across the live ones. Round-robin DNS was the first approach. It rotates the IP addresses handed out, which balances load, but it can't hide a dead server: clients holding that address keep failing until their cached entry expires, possibly for hours. Layer-4 switches (and layer-7 switches, which parse URLs) fix that by watching TCP connections and removing dead nodes from rotation at wire speed. They come in pairs with hot failover, so they aren't a single point of failure, and layer-7 can route a request to the node that owns the relevant partition. Custom front-end nodes do layer-7 routing in software and can keep per-user session state. Smart clients go further: the client itself knows about alternative servers or sites and switches between them, which makes cross-site failover for disasters and overload immediate.",
+      follow: "Why can't a pair of layer-4 switches protect you when an entire data center goes dark?",
+      followA: "The switches live inside the site. When the whole cluster is lost, so are they, and the external address they served. Moving traffic to another site takes either DNS changes, which can take hours to propagate, or smart clients that already know the other sites."
+    },
+    labs: ["dnsCrash", "l4Crash"], items: ["m1n1", "m1n2", "m1n3", "m1m"] },
+
+  { id: "m2", code: "02", title: "Availability: Uptime, Yield, Harvest", min: 15,
+    warm: ["r1a"], predict: "m2p",
+    pages: { j: "pp. 49–50", pdf: "PDF pages 4–5", sec: "\"High Availability\" and \"Availability Metrics\", through the paragraph ending \"…the capacity in queries per second remains the same.\"" },
+    notes: [
+      "The goal is the availability of the phone, rail, and water systems, while also coping with constant feature changes and unpredictable growth. Fig 4 shows a cluster built for availability: symmetry, no people, few cables, no monitors.",
+      "<b>Uptime</b> is the fraction of time the site handles traffic, measured in \"nines\" (four nines is under 60 s of downtime per week). <code>uptime = (MTBF − MTTR) / MTBF</code>.",
+      "You can improve uptime with fewer failures (MTBF) or faster repair (MTTR). <b>MTTR is far easier</b>: measuring it takes minutes, proving an MTBF takes weeks of realistic load, and new features erode MTBF while MTTR stays stable.",
+      "<b>Yield</b> = queries completed / queries offered. It is numerically close to uptime, but it matches user experience because not all seconds are equal: peak and off-peak can differ by 10×.",
+      "<b>Harvest</b> = data available / complete data, meaning how much of the database is reflected in the answer. The idea extends to features (eBay seller profiles can be down while the rest of the site works).",
+      "<b>Key insight</b>: you can influence whether faults hit yield, harvest, or both. Replicated systems turn faults into reduced capacity (and lower yield at high utilization). Partitioned systems turn faults into reduced harvest."
+    ],
+    explain: {
+      prompt: "Closed book. Define uptime, yield, and harvest. Why does Brewer prefer yield to uptime, and why should giant-scale services focus on MTTR rather than MTBF? End with the \"key insight\" that links these metrics to system design.",
+      rubric: [
+        "Uptime is the fraction of time the site is serving, uptime = (MTBF − MTTR)/MTBF, often expressed in nines.",
+        "Yield = queries completed / queries offered. It's preferred because it reflects user experience and not all seconds are equal (peak vs. idle).",
+        "Harvest = data available / complete data, meaning how complete each answer is. The idea can extend to features.",
+        "Focus on MTTR: it's much faster to measure and improve than MTBF, which needs long testing and is eroded by new features.",
+        "Key insight: design determines whether faults reduce yield (replication, via lost capacity) or harvest (partitioning)."
+      ],
+      model: "Uptime is the fraction of time a site serves traffic, (MTBF − MTTR)/MTBF, usually quoted in nines. Brewer prefers yield, queries completed divided by queries offered, because it weights failures by how many users they hit: a second of downtime at 3 AM costs almost nothing, while the same second at peak costs a lot, yet uptime counts them the same. Harvest is data available divided by complete data. It measures how complete each answer is (and the idea extends to features). You can raise uptime with fewer failures or faster repairs, and faster repair (lower MTTR) is far more practical. You can measure it in minutes and iterate quickly, while demonstrating a higher MTBF needs weeks of realistic testing that each new release undoes. The key insight is that the architecture decides where faults show up: replication turns a fault into lost capacity, and so lost yield at high load, while partitioning turns it into lost harvest.",
+      follow: "Give a concrete case where uptime is 100% but the user experience is still degraded, and name the metric that catches it.",
+      followA: "A partitioned search engine with 3 of 40 partitions down answers every query (100% uptime and yield), but each answer misses 7.5% of the data. Harvest is 92.5%. Or, at saturation, the site is up but drops queries, so yield falls below 100%."
+    },
+    labs: ["minOutage"], items: ["m2n1", "m2q1", "m2n2", "m2n3"] },
+
+  { id: "m3", code: "03", title: "The DQ Principle", min: 15,
+    warm: ["r2a", "r1b"], predict: "m3p",
+    pages: { j: "p. 51", pdf: "PDF page 6", sec: "\"DQ Principle\", the whole section, including the paragraph on its limits (computation-bound and long-latency sites)." },
+    notes: [
+      "<code>Data per query × queries per second → constant</code>. It's a principle rather than a literal law, but it's very useful.",
+      "Why it holds: capacity is limited by a physical bottleneck tied to <b>data movement</b> (total I/O bandwidth, seeks/sec). At the high utilization typical of giant-scale systems, DQ approaches that limit. Brewer prefers bandwidth to I/O count as the metric.",
+      "DQ is <b>measurable and tunable</b>. Define a target workload and use a load generator to measure it. The absolute value matters less than the <b>relative</b> value, which is very predictive.",
+      "Adding nodes or software optimizations raises DQ, and faults lower it. DQ <b>scales linearly</b> with node count, so a small test cluster predicts production (Inktomi used 4 nodes to predict 100).",
+      "Uses: estimate the impact of faults (at best a <b>linear</b> DQ loss per failed node), evaluate every hardware or software change before deployment, and turn traffic forecasts into capacity plans. Nodes with different DQ tell you how unevenly to partition or balance load.",
+      "Limits: it applies to <b>data-intensive</b> sites (most of the top 100), not compute-bound ones (simulation) or those with long-latency external actions (chat)."
+    ],
+    explain: {
+      prompt: "Closed book. State the DQ principle and explain WHY it holds. How would you use it in practice (name at least two uses), and where does it break down?",
+      rubric: [
+        "D × Q is roughly constant for a given system (data per query times queries per second).",
+        "It holds because capacity is bounded by a physical data-movement bottleneck (I/O bandwidth, seeks), and giant-scale systems run near that limit.",
+        "DQ is measured with a target workload and a load generator. Relative values are predictive, and DQ scales linearly with nodes, so small test clusters predict large ones.",
+        "Uses: the impact of faults (at best a linear loss), evaluating upgrades and optimizations before deployment, capacity planning from traffic forecasts, and trading D for Q under load.",
+        "Limits: it applies to data-intensive services, not compute-bound ones or those with long-latency external actions such as chat."
+      ],
+      model: "The DQ principle says the data moved per query times the queries per second is roughly constant for a given system. It holds because a data-intensive service's capacity is limited by a physical data-movement bottleneck, such as total disk or network bandwidth or seeks per second, and giant-scale services run close to that limit. You measure DQ by defining a target workload and driving a configuration with a load generator. The absolute number matters less than how it changes. Because DQ scales linearly with node count, a small test cluster predicts the production cluster. In practice you use it to size the impact of faults (at best, each lost node removes its share of DQ), to evaluate every upgrade or optimization before it ships, to turn traffic forecasts into hardware plans, and under overload to trade D for Q (cut the database to serve more queries) or the reverse. It breaks down for compute-bound services and for services dominated by long-latency external actions, such as chat.",
+      follow: "If D × Q is constant, why doesn't choosing replication or partitioning change your total capacity?",
+      followA: "The DQ bottleneck is physical data movement. Storing data twice doesn't create more bandwidth, so both layouts start with the same total DQ and lose the same share per failed node. What changes is how the loss shows up: replication keeps D and loses Q, and partitioning keeps Q and loses D."
+    },
+    labs: [], items: ["m3n0", "m3n1", "m3n2", "m3n3", "m3q1"] },
+
+  { id: "m4", code: "04", title: "Replication vs. Partitioning", min: 18,
+    warm: ["r3a", "r2b"], predict: "m4p",
+    pages: { j: "pp. 51–52", pdf: "PDF pages 6–7", sec: "\"Replication vs. Partitioning\" and Table 1 (\"Overload due to failures\"), through \"…All three use randomization.\"" },
+    notes: [
+      "Two-node cluster, one fault: the <b>replicated</b> version keeps 100% harvest but drops to 50% yield (at high load). The <b>partitioned</b> version keeps 100% yield but drops to 50% harvest. Both start with the same DQ and lose half of it. Replicas keep D and lose Q. Partitions keep Q and lose D.",
+      "The traditional \"replication is better\" view silently assumes spare capacity. That's the <b>load redirection problem</b>: survivors must absorb the failed nodes' queries, which is unrealistic at high utilization.",
+      "Table 1 (k of n failures): lost capacity <code>k/n</code>, redirected load <code>k/(n−k)</code>, overload factor <code>n/(n−k)</code>. Example: 2 of 5 lost gives 2/3 extra load, or 166% of normal.",
+      "\"Replication on disk is cheap, but accessing the replicated data requires DQ points.\" Partitioning has no real DQ savings over replication, <i>except</i> under heavy write traffic, which is rare.",
+      "Recommendation: <b>replicate once partitions reach a convenient size</b>. You get more control over harvest, disaster recovery support, and easier growth than repartitioning.",
+      "Vary replication by importance: replicate <b>key data</b>, so a fault costs 1/n of the less important data. <b>Randomize</b> (hash) the partitioning, so lost harvest is a random sample (average case = worst case) and hot spots are avoided. Inktomi uses partial replication, e-mail full replication, web caches none, and all three randomize."
+    ],
+    explain: {
+      prompt: "Closed book. Explain the load redirection problem, including the overload formula. Why is \"replication is cheap because disks are cheap\" misleading? What does Brewer recommend about when to replicate and when to partition, and which two tricks refine it?",
+      rubric: [
+        "Load redirection: after faults, the surviving replicas must absorb the failed nodes' load. At high utilization they overload and yield drops. The traditional view assumes excess capacity.",
+        "Overload factor n/(n−k) (redirected load k/(n−k)) for k failures in a replica group of n.",
+        "Replication's real cost is DQ, not disk. Partitioning saves no DQ (except under heavy write traffic).",
+        "Replicate once partitions are a convenient size: more control over harvest, disaster recovery, and easier growth.",
+        "Refinements: replicate important/key data selectively, and randomize (hash) the partitioning so lost harvest is a random subset and hot spots are avoided."
+      ],
+      model: "Replication is traditionally seen as better because a fault loses no data. But when a replica dies, the survivors must take over its queries: with k of n replicas down, each survivor carries n/(n−k) of its normal load. Giant-scale services run hot, so that pushes survivors past capacity and yield drops. Replication preserves data, not DQ. Extra disk copies are cheap, but serving from them needs spare DQ, and DQ, not storage, is the scarce resource. Partitioning doesn't save DQ either, except for write-heavy workloads, which are rare here. So Brewer recommends partitioning until partitions reach a convenient size and replicating beyond that, which gives control over harvest, disaster recovery, and easier growth. Two refinements: replicate only the key data inside a partitioned system, so a failure costs a less important partition, and assign data to partitions by a pseudo-random hash, so any loss is a random, average-value slice and there are no hot spots.",
+      follow: "A replica group of 3 runs at 80% utilization and loses one node. Roughly what yield do the survivors deliver, and what could you do about it?",
+      followA: "Survivors carry 0.8 × 3/2 = 1.2, or 120% of capacity, so without intervention yield is about 1/1.2 ≈ 83%. Options: keep excess DQ in reserve, or degrade gracefully (admission control to protect harvest, or reduce D to protect yield)."
+    },
+    labs: ["sandbox"], items: ["m4n1", "m4n2", "m4n3", "m4q1", "m4q2"] },
+
+  { id: "m5", code: "05", title: "Graceful Degradation", min: 18,
+    warm: ["r4a", "r1c"], predict: "m5p",
+    pages: { j: "pp. 52–53", pdf: "PDF pages 7–8", sec: "\"Graceful Degradation\", including the three bullet examples (cost-based AC, priority-based AC, reduced data freshness)." },
+    notes: [
+      "Saturation can't be designed away: <b>peak-to-average</b> ratios run from 1.6:1 to 6:1, <b>single-event bursts</b> happen (Moviephone was overloaded even with 10× capacity), and some faults are <b>correlated</b> (power, natural disasters).",
+      "The DQ principle gives two options: <b>limit Q to maintain D</b> (admission control, which protects <b>harvest</b>) or <b>reduce D to raise Q</b> (dynamic database reduction, which protects <b>yield</b>), or a combination. Halving the effective database roughly doubles capacity.",
+      "\"Graceful degradation is simply the explicit process for managing the effect of saturation on availability\": you <i>decide</i> how saturation affects uptime, harvest, and quality of service.",
+      "<b>Cost-based AC</b> (Inktomi): admit based on estimated DQ cost. Denying one expensive query can let several cheap ones through, a net gain in yield and harvest. Probabilistic, lottery-style AC is also possible.",
+      "<b>Priority/value-based AC</b> (Datek): stock trades are guaranteed to execute within 60 s or the commission is waived. Drop low-value queries regardless of their cost.",
+      "<b>Reduced freshness</b>: let cached stock quotes expire less often. Work per query drops, so yield rises and harvest falls. Aggressive caching and database reduction both lower D."
+    ],
+    explain: {
+      prompt: "Closed book. \"Graceful degradation is simply the explicit process for managing the effect of saturation on availability.\" Unpack this. Why is saturation unavoidable? What are the two fundamental DQ levers, and which metric does each protect? Give a real example of each kind of admission control and of reducing D.",
+      rubric: [
+        "Saturation is unavoidable: peak-to-average ratios of 1.6–6:1, single-event bursts (Moviephone), and correlated faults.",
+        "Lever 1: admission control limits Q so admitted queries keep full D, which protects harvest.",
+        "Lever 2: dynamic database reduction, caching, or reduced freshness lowers D so more queries fit, which protects yield. Halving D roughly doubles Q.",
+        "Examples: cost-based AC (Inktomi; drop expensive queries), value/priority AC (Datek trades within 60 s), reduced freshness of stock quotes.",
+        "The explicit part: decide in advance which metric (yield, harvest, QoS) to sacrifice, rather than letting overload decide."
+      ],
+      model: "You can't build enough capacity to avoid saturation: normal peaks run 1.6 to 6 times the average, one-off events like the Star Wars ticket rush overwhelm even 10× headroom, and correlated failures like power loss remove big chunks of DQ at once. Since D × Q is fixed, overload forces a choice. Admission control limits Q so that every admitted query still gets full data, which protects harvest at the cost of yield. Dynamic database reduction, caching, or serving staler data lowers D so more queries fit, which protects yield at the cost of harvest. Real systems mix them: Inktomi rejects queries based on their estimated DQ cost, so one expensive query can make room for several cheap ones; Datek prioritizes by value and guarantees trades within 60 seconds; financial sites let quotes go stale under load. The word \"explicit\" is the point: you choose ahead of time which availability metric gives way, instead of letting overload choose for you.",
+      follow: "Cost-based admission control denies an expensive query. Explain how that can raise BOTH yield and harvest overall.",
+      followA: "Yield counts queries. Rejecting one query that needs, say, 5 DQ units lets about five 1-unit queries complete: one failure turns into five successes, so yield rises. The admitted queries run with full data, so harvest over the answered queries stays high instead of being spread thin."
+    },
+    labs: ["round1", "round2", "round3"], items: ["m5q1", "m5q2"] },
+
+  { id: "m6", code: "06", title: "Disaster Tolerance", min: 12,
+    warm: ["r5a", "r3b"], predict: "m6p",
+    pages: { j: "p. 53", pdf: "PDF page 8", sec: "\"Disaster Tolerance\" (the whole section; it's short, so read it twice)." },
+    notes: [
+      "Disaster tolerance is simply <b>managing replica groups + graceful degradation</b>. A disaster is the complete loss of one or more replicas. Natural disasters take out every replica at one location, while fires or power failures may take out just one.",
+      "The design question: <b>how many locations, and how many replicas at each?</b>",
+      "Use Table 1. With two replicas at each of three sites, a site loss removes 2/6 of replicas, so each survivor takes <b>+50%</b> traffic and saturates. Graceful degradation takes over.",
+      "Inktomi's best plan: dynamically cut D to <b>2/3</b> to get 3/2 Q. Its actual plan cuts D to <b>50% for any disaster</b>: simpler, but less finely tuned.",
+      "Load management is the harder part: <b>layer-4 switches don't help with the loss of a whole cluster</b>. DNS changes can take hours. <b>Smart clients</b> redirect immediately, which Brewer calls the most compelling reason to use them."
+    ],
+    explain: {
+      prompt: "Closed book. An earthquake destroys one of your three sites (two replicas each, running near capacity). Walk through what happens in DQ and load terms and in load-management terms, and say what you would do about each.",
+      rubric: [
+        "A disaster is the complete loss of one or more replicas. A natural disaster takes out every replica at one site.",
+        "Losing 2 of 6 replicas means each survivor carries +50% load (n/(n−k) = 3/2), which saturates it.",
+        "Respond with graceful degradation: cut D to about 2/3 to get 3/2 Q (Inktomi simply halves D), or use admission control if harvest must be kept.",
+        "Layer-4 switches don't help when a whole cluster is lost, and DNS redirection can take hours.",
+        "Smart clients can redirect traffic to the surviving sites immediately."
+      ],
+      model: "Losing a site is the complete loss of two of the six replicas. By the load-redirection math, the four survivors must carry 6/4 of their normal load, 50% more, which saturates them because they were already near capacity. That is where graceful degradation comes in: to keep yield at 100%, dynamically shrink the data per query to about two-thirds so the sites can handle 1.5× the queries. Inktomi simply cuts D to 50% for any disaster, which is less finely tuned but simpler. If complete answers matter more, use admission control and accept lower yield. Load management is the other problem. The dead site's layer-4 switches are gone with it, so they can't redirect anyone, and changing DNS can take hours to propagate. Smart clients that already know the alternative sites fail over immediately, which is the strongest argument for them.",
+      follow: "Why might Inktomi choose \"cut D to 50% for any disaster\" instead of computing the exact reduction each time?",
+      followA: "One rule covers any single-site loss (with 2 or more sites), can be tested and automated in advance, and avoids complex decisions in the middle of a crisis. The cost is giving up more harvest than necessary in the 3-site case (50% instead of 67%)."
+    },
+    labs: ["quake"], items: ["m6n1", "m6n2", "m6n3", "m6n4", "m6q1", "m6q2"] },
+
+  { id: "m7", code: "07", title: "Online Evolution & Growth", min: 16,
+    warm: ["r6a", "r4b", "r2c"], predict: "m7p",
+    pages: { j: "pp. 53–55", pdf: "PDF pages 8–10", sec: "\"Online Evolution and Growth\", Figure 5, and \"Conclusions\" (the seven lessons)." },
+    notes: [
+      "The classic high-availability tenet of <b>minimal change</b> clashes with growth and \"Internet time\". Software is never perfect (slow leaks, nondeterministic bugs), so the target is a set MTBF, a <b>low MTTR</b>, and <b>no cascading failures</b>.",
+      "Treat upgrades as <b>controlled failures</b>, a temporary, planned reduction in DQ. <code>ΔDQ = n · u · (average DQ/node) = DQ · u</code>, where u is the upgrade time per node.",
+      "A <b>staging area</b> lets old and new versions coexist on a node, so the upgrade is a controlled reboot within the normal MTTR, and <b>reverting</b> is easy (live traffic exposes new bugs). Hardware, OS, schema, and repartitioning changes take longer.",
+      "<b>Fast reboot</b>: everything at once. Guaranteed downtime, so measure lost yield and do it off-peak. Needs staging and automation. Only one version runs at a time.",
+      "<b>Rolling upgrade</b>: one node at a time in a wave. Minimal impact: a replicated cluster keeps 100% yield and harvest (off-peak), while a partitioned one loses some harvest. <b>Old and new versions must be compatible</b> (no schema, namespace, or intracluster protocol changes). The most popular approach.",
+      "<b>Big flip</b>: upgrade half the nodes, then flip all traffic to them atomically with a layer-4 switch, drain, and upgrade the other half. A 50% DQ loss shows up as capacity (replicas) or harvest (partitions). Works for anything, even relocations (Inktomi moved about 20 nodes from Berkeley to Santa Clara using DNS, and about 100 nodes between cages using a switch). Heavyweight and rare.",
+      "<b>Figure 5</b>: all three lose the same DQ area, spread differently over time.",
+      "The seven lessons: get the basics right; decide on your availability metrics; focus on MTTR at least as much as MTBF; understand load redirection; graceful degradation is critical; use DQ analysis on all upgrades; automate upgrades (staging area plus a fast revert)."
+    ],
+    explain: {
+      prompt: "Closed book. Compare fast reboot, rolling upgrade, and big flip. What do they have in common in DQ terms (give the formula)? How do they differ, and when would you use each? Where does a staging area fit in?",
+      rubric: [
+        "Upgrades are controlled failures. ΔDQ = n·u·DQ/node = DQ·u, the same total loss for all three (equal areas in Fig. 5).",
+        "Fast reboot: all nodes at once, guaranteed downtime, so do it off-peak and measure lost yield. Needs automation and staging. Only one version runs.",
+        "Rolling upgrade: one node at a time, minimal impact (replicated: full yield and harvest; partitioned: harvest dips). Versions must be compatible, so no schema or protocol changes. The most popular.",
+        "Big flip: half at a time with an atomic switch flip. The 50% DQ loss appears as capacity or harvest. Handles any change (schema, hardware, relocation). Heavyweight and rare.",
+        "Staging area: new and old versions coexist on the node, so the upgrade is a quick controlled reboot within MTTR and reverting is easy."
+      ],
+      model: "All three treat an upgrade as a controlled failure, and all three lose the same total DQ: every node is out for its upgrade time u, so ΔDQ = n · u · DQ-per-node = DQ · u. They differ in how that loss is spread over time. A fast reboot upgrades every node at once: short but guaranteed downtime, best done off-peak and judged by lost yield, and it needs heavy automation and staging. A rolling upgrade takes one node down at a time, so impact is small (a replicated cluster keeps full yield and harvest off-peak, and a partitioned one loses a little harvest per window). But old and new versions coexist, so it can't be used for incompatible changes like schema, namespace, or intracluster protocol changes. It's the most popular approach. The big flip upgrades half the cluster, flips all traffic to it atomically at the switch, then upgrades the other half. It runs at 50% DQ (capacity or harvest) for a while but handles anything, even moving a cluster. A staging area helps all three: the new version is installed alongside the old one, so switching is just a controlled reboot and rolling back is easy.",
+      follow: "Why does Brewer frame an upgrade as a \"controlled failure\", and what does that framing buy you?",
+      followA: "An upgrade temporarily removes a node's DQ, exactly like a fault, except that you choose when and how much. So the same tools apply: predict the ΔDQ, choose whether it hits yield or harvest, schedule it off-peak, and rely on a low MTTR and graceful degradation instead of hoping for zero impact."
+    },
+    labs: ["allThree"], items: ["m7m", "m7n1", "m7n2", "m7n3", "m7q1"] }
+];
+
+const PRE = ["P1", "P2", "P3", "P4", "P5", "P6"];
+const INCIDENT = ["I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8", "I9"];
+const CONCEPTS = [
+  "Basic model: clients, IP network, load manager, servers, persistent data store, optional backplane",
+  "Assumptions: query-driven, read-mostly traffic; all giant-scale sites use clusters",
+  "Why clusters: absolute scalability, independent faults, incremental scalability (not hardware cost)",
+  "Round-robin DNS balances load but doesn't hide dead nodes (TTL expiry)",
+  "Layer-4/7 switches in pairs (hot failover) detect down nodes; layer-7 parses URLs",
+  "Smart clients enable fast cross-site failover",
+  "Uptime = (MTBF − MTTR)/MTBF, measured in nines",
+  "Focus on MTTR at least as much as MTBF (faster to improve; features erode MTBF)",
+  "Yield = queries completed / offered; better than uptime because not all seconds are equal",
+  "Harvest = data available / complete data",
+  "Faults can be steered to hit yield (replication) or harvest (partitioning)",
+  "DQ principle: data per query × queries/sec ≈ constant, bounded by a physical data-movement bottleneck",
+  "DQ is measurable with a load generator; scales linearly with nodes; small clusters predict big ones; use it for capacity planning and upgrades",
+  "Load redirection problem: overload factor n/(n−k); replication needs excess DQ, not just disk",
+  "Replicate once partitions are a convenient size; replicate key data; randomize partitioning",
+  "Graceful degradation: admission control (limit Q, keep harvest) vs dynamic database reduction (reduce D, keep yield); cost-based, value-based AC; reduced freshness",
+  "Disaster tolerance: sites × replicas; losing a site means +load, so reduce D; DNS is slow, smart clients are fast",
+  "Online evolution: upgrades as controlled failures, ΔDQ = DQ·u; staging area; fast reboot, rolling (needs compatibility), big flip — same total DQ loss"
+];
+const CAPSTONE = {
+  prompt: `It's 2001. You're the founding engineer of PhotoBin, a photo-sharing service. Facts: 200M page views/day; read-mostly (about 50 views per upload); peak-to-average ratio about 3:1; 40 TB of photos, where the "popular" 2% of photos draw 60% of views; feature releases every week; one data center today, a second planned in another city; the marketing team plans a celebrity launch expected to bring a 4× spike for a few hours.
+
+Write a design memo (250–450 words) that covers:
+(1) load management, (2) replication vs. partitioning (what, why, and how data is placed), (3) the availability metrics you'll report daily, with targets, (4) your graceful-degradation plan for the 4× spike, (5) disaster tolerance once the second site exists, and (6) your upgrade strategy, including what you'd do for a schema change.
+Use DQ reasoning with at least one number.`,
+  rubric: [
+    "Load management: a layer-4/7 switch pair within each site (hides dead nodes), with smart clients or DNS for cross-site failover. Explains why round-robin DNS alone is insufficient.",
+    "Data layout: partition the large photo store with hash/random placement; replicate the popular/key 2% (and/or replicate once partitions are a convenient size); justified via DQ, harvest, and load redirection.",
+    "Metrics: yield and harvest (not just uptime) measured daily, with explicit targets; mentions MTTR focus.",
+    "Degradation plan for 4×: explicit levers (admission control by cost or value, reduced D such as serving only popular photos or lower resolution, caching/freshness) and which metric is sacrificed.",
+    "Disaster tolerance: two sites mean losing one puts 2× load on the survivor; plans D reduction/AC accordingly and smart-client or DNS redirection.",
+    "Upgrades: rolling upgrades with a staging area and fast revert for routine releases; big flip (or off-peak fast reboot) for schema/protocol changes; DQ impact assessed before deployment. Uses DQ quantitatively at least once."
+  ],
+  model: `Load management. Each site sits behind a hot-failover pair of layer-7 switches that detect dead nodes and route by URL to the right partition. Round-robin DNS alone would leave users stuck on dead nodes until TTLs expire. Our mobile and desktop uploaders are smart clients that know both sites, so cross-site failover doesn't wait on DNS.
+
+Data layout. The 40 TB store is hash-partitioned, so a lost partition is a random, average-value slice and there are no hot spots. The popular 2% (about 0.8 TB, 60% of views) is replicated on every node, so losing a node costs only a random bit of the long tail. Beyond that, we replicate once partitions reach a convenient size, and we budget spare DQ for replicas instead of assuming disks buy availability: with 4-node replica groups at 70% utilization, one failure pushes survivors to 93%, which is fine, but two failures push them to 140%.
+
+Metrics. We report yield (target 99.9% daily, weighted by load) and harvest (target ≥ 99.5%) every day, plus MTTR per incident. Engineering effort goes to MTTR first.
+
+4× spike. We're provisioned for about 1.3× the normal peak, so 4× the average (≈1.33× peak) sits right at the edge, and correlated faults would push us over. Plan: (a) serve only the popular set plus cached thumbnails (dynamic database reduction: D drops sharply, protecting yield at the cost of harvest for long-tail photos); (b) cost-based admission control for expensive operations such as full-resolution downloads and searches; (c) value-based AC that always admits uploads from paying users. Sacrificed: harvest and freshness of comments.
+
+Disaster tolerance. With two sites, losing one means the survivor sees 2× load (n/(n−k) = 2), so the disaster plan pre-commits to cutting D to 50% (popular set plus thumbnails) and uses smart clients to redirect immediately.
+
+Upgrades. Weekly releases roll through one node at a time using a staging area and a one-command revert; DQ impact is measured on a 4-node test cluster before each release. Schema or protocol changes use a big flip at the switch during off-peak hours (running at 50% DQ, which is fine at the 3 AM trough).`
+};
+
+/* ============================== timer ============================== */
+const TOTAL_MIN = 120;
+setInterval(() => {
+  if (document.visibilityState === "visible" && S.preDone !== undefined && S.cur !== "intro-idle") {
+    S.active++; if (S.active % 10 === 0) save(); drawClock();
+  }
+}, 1000);
+function drawClock() {
+  const m = Math.floor(S.active / 60);
+  $("#clock").innerHTML = `<b>${m}</b> / ${TOTAL_MIN} min`;
+  const total = MODS.length + 2; let done = S.preDone ? 1 : 0;
+  MODS.forEach(m => { if (MS(m.id).phase >= phaseList(m).length - 1) done++; });
+  if (S.final.phase >= 5) done++;
+  $("#progbar").style.width = (done / total * 100) + "%";
+}
+
+/* ============================== navigation ============================== */
+function phaseList(m) { return (m.warm.length ? ["warm"] : []).concat(["predict", "read", "explain", "lab", "done"]); }
+function modDone(m) { return MS(m.id).phase >= phaseList(m).length - 1; }
+function unlocked(id) {
+  if (DEV) return true;
+  if (id === "intro") return true;
+  if (!S.preDone) return false;
+  if (id === "final" || id === "summary") return MODS.every(modDone) && (id === "final" || S.final.phase >= 5);
+  const i = MODS.findIndex(m => m.id === id);
+  return i === 0 || modDone(MODS[i - 1]);
+}
+function go(id) { if (!unlocked(id)) return; S.cur = id; save(); render(); window.scrollTo({ top: 0 }); }
+
+function renderSide() {
+  const side = $("#side"); side.innerHTML = "";
+  const ol = h("ol");
+  const entry = (id, dot, label, meta, done) => {
+    const cur = S.cur === id;
+    ol.append(h("li", {}, h("button", { disabled: !unlocked(id), "aria-current": cur ? "true" : "false", onclick: () => go(id) },
+      h("span", { class: "dot" + (done ? " done" : cur ? " now" : "") }, done ? "✓" : dot),
+      h("span", {}, label, meta ? h("div", { class: "meta" }, meta) : null))));
+  };
+  entry("intro", "0", "Briefing & pre-test", "8 min", S.preDone);
+  MODS.forEach(m => entry(m.id, m.code, m.title, `${m.min} min · ${m.pages.j}`, modDone(m)));
+  entry("final", "★", "Incident Night (final)", "25 min", S.final.phase >= 5);
+  entry("summary", "Σ", "Debrief & review deck", "", false);
+  side.append(ol);
+  side.append(h("div", { class: "foot" },
+    h("span", {}, `Review deck: ${S.deck.length} card${S.deck.length === 1 ? "" : "s"}`),
+    h("span", {}, "AI tutor: ", hasAI() ? "connected" : "off (self-grading)"),
+    h("button", { onclick: () => { if (confirm("Erase all progress and start over?")) { S = fresh(); save(); render(); } } }, "Reset progress")));
+}
+
+/* ============================== components ============================== */
+function record(key, rec) { S.items[key] = Object.assign({ at: S.active }, rec); save(); }
+
+function mcqEl(qid, key, opts = {}) {
+  const q = Q[qid]; const prior = S.items[key];
+  let choice = prior ? prior.choice : null, conf = prior ? prior.conf : null;
+  const wrap = h("div", { class: "q" });
+  const draw = () => {
+    wrap.innerHTML = "";
+    const answered = !!S.items[key];
+    wrap.append(h("div", { class: "qt" }, q.q));
+    const os = h("div", { class: "opts" });
+    q.o.forEach((o, i) => {
+      let cls = "opt";
+      if (answered && !opts.defer) { if (i === q.a) cls += " right"; else if (i === choice) cls += " wrong"; }
+      else if (i === choice) cls += " sel";
+      os.append(h("button", { class: cls, disabled: answered, onclick: () => { choice = i; draw(); } }, String.fromCharCode(65 + i) + ". " + o));
+    });
+    wrap.append(os);
+    if (!answered) {
+      const c = h("div", { class: "conf" }, "Confidence:");
+      CONF.forEach(([k, l]) => c.append(h("button", { class: "chip" + (conf === k ? " sel" : ""), onclick: () => { conf = k; draw(); } }, l)));
+      wrap.append(c);
+      wrap.append(h("button", { class: "btn small", disabled: choice == null || !conf, onclick: () => {
+        const correct = choice === q.a;
+        record(key, { choice, conf, correct, qid });
+        if (!correct && !opts.defer && !opts.noDeck) addCard(q.q, q.o[q.a] + " — " + q.x, key);
+        draw(); opts.onDone && opts.onDone(correct);
+      } }, opts.defer ? "Lock in" : "Submit"));
+    } else if (opts.defer) {
+      wrap.append(h("div", { class: "fb info" }, opts.deferMsg || "Locked in. You'll find out later."));
+    } else {
+      const r = S.items[key];
+      wrap.append(h("div", { class: "fb " + (r.correct ? "good" : "bad"), html: (r.correct ? "<b class='g'>Correct.</b> " : "<b class='r'>Not quite.</b> The answer is " + String.fromCharCode(65 + q.a) + ". ") + esc(q.x) + (r.correct ? "" : " <i>(Added to your review deck.)</i>") }));
+    }
+  };
+  draw(); return wrap;
+}
+
+function numEl(qid, key, opts = {}) {
+  const q = Q[qid];
+  const st = S.items[key + ":try"] || { tries: 0 };
+  const wrap = h("div", { class: "q" });
+  const draw = (msg) => {
+    wrap.innerHTML = "";
+    const done = S.items[key];
+    wrap.append(h("div", { class: "qt" }, q.q));
+    if (done) {
+      wrap.append(h("div", { class: "fb " + (done.correct ? "good" : "warn"), html: (done.correct ? `<b class='g'>Correct: ${q.a} ${esc(q.u)}.</b>` : `Answer: <b>${q.a} ${esc(q.u)}</b>. (Added to your review deck.)`) + (st.tries > 1 && done.correct ? ` Solved on attempt ${st.tries}.` : "") }));
+      return;
+    }
+    const inp = h("input", { type: "number", step: "any", class: "num-in", "aria-label": "answer" });
+    const check = () => {
+      const v = parseFloat(inp.value); if (isNaN(v)) return;
+      st.tries++; S.items[key + ":try"] = st;
+      if (Math.abs(v - q.a) <= q.tol + 1e-9) { record(key, { correct: true, tries: st.tries, qid }); draw(); opts.onDone && opts.onDone(true); }
+      else { save(); draw(st.tries >= 2 ? "Not yet. Hint: " + q.hint : "Not yet. Recheck your reasoning and try again."); }
+    };
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") check(); });
+    const row = h("div", { class: "row" }, inp, h("span", { class: "small" }, q.u), h("button", { class: "btn small", onclick: check }, "Check"));
+    if (st.tries >= 3) row.append(h("button", { class: "btn ghost small", onclick: () => {
+      record(key, { correct: false, tries: st.tries, qid }); addCard(q.q, `${q.a} ${q.u}. ${q.hint}`, key); draw(); opts.onDone && opts.onDone(false);
+    } }, "Show answer"));
+    wrap.append(row);
+    if (msg) wrap.append(h("div", { class: "fb bad" }, msg));
+  };
+  draw(); return wrap;
+}
+
+function matchEl(qid, key, opts = {}) {
+  const q = Q[qid];
+  const st = S.items[key + ":try"] || { tries: 0, sel: q.pairs.map(() => -1) };
+  const wrap = h("div", { class: "q" });
+  const draw = (checked) => {
+    wrap.innerHTML = "";
+    const done = S.items[key];
+    wrap.append(h("div", { class: "qt" }, q.q));
+    q.pairs.forEach(([txt, ans], i) => {
+      const sel = h("select", { disabled: !!done, onchange: e => { st.sel[i] = +e.target.value; S.items[key + ":try"] = st; save(); } },
+        h("option", { value: -1 }, "— choose —"), ...q.opts.map((o, j) => h("option", { value: j, selected: st.sel[i] === j }, o)));
+      const ok = st.sel[i] === ans;
+      wrap.append(h("div", { class: "match-row" + ((checked || done) ? (ok ? " ok" : " no") : "") }, h("span", {}, txt), sel));
+    });
+    if (done) { wrap.append(h("div", { class: "fb good" }, done.correct ? "All correct on the first try." : "All correct now. The ones you missed are in your review deck.")); return; }
+    wrap.append(h("div", { class: "row", style: "margin-top:8px" }, h("button", { class: "btn small", onclick: () => {
+      if (st.sel.some(x => x < 0)) return draw(false);
+      st.tries++;
+      const wrongs = q.pairs.map((p, i) => st.sel[i] !== p[1] ? i : -1).filter(i => i >= 0);
+      wrongs.forEach(i => { st.missed = st.missed || []; if (!st.missed.includes(i)) st.missed.push(i); });
+      S.items[key + ":try"] = st; save();
+      if (!wrongs.length) {
+        (st.missed || []).forEach(i => addCard("Which approach fits: " + q.pairs[i][0] + "?", q.opts[q.pairs[i][1]], key));
+        record(key, { correct: st.tries === 1, tries: st.tries, qid }); draw(true); opts.onDone && opts.onDone(true);
+      } else draw(true);
+    } }, "Check"), h("span", { class: "small" }, "Red rows are wrong. Fix them and check again.")));
+  };
+  draw(false); return wrap;
+}
+
+function itemEl(qid, key, opts) {
+  const t = Q[qid].t;
+  return t === "mcq" ? mcqEl(qid, key, opts) : t === "num" ? numEl(qid, key, opts) : matchEl(qid, key, opts);
+}
+
+/* ---------- explanation (generation + AI feedback + elaborative follow-up) ---------- */
+function explainEl(cfg, st, onComplete) {
+  // cfg: {prompt, rubric, model, follow, followA, src, minWords}
+  const wrap = h("div");
+  const draw = () => {
+    wrap.innerHTML = "";
+    wrap.append(h("div", { class: "notes", style: "white-space:pre-wrap" }, cfg.prompt));
+    const last = st.attempts[st.attempts.length - 1];
+    const passed = last && last.score >= 70;
+    const canRevise = last && !passed && st.attempts.length < 2 && !st.self;
+    const open = !last || canRevise;
+    const ta = h("textarea", { placeholder: "Write from memory, in your own words. Aim for a full paragraph: definitions, mechanisms, and why.", disabled: !open });
+    ta.value = st.draft != null ? st.draft : (last ? last.text : "");
+    const wc = h("span", { class: "small" });
+    const minW = cfg.minWords || 60;
+    const upd = () => { st.draft = ta.value; wc.textContent = words(ta.value) + " words" + (words(ta.value) < minW ? ` (write at least ${minW})` : ""); sub.disabled = words(ta.value) < minW; };
+    const sub = h("button", { class: "btn", onclick: () => submit(ta.value) }, last ? "Resubmit revision" : (hasAI() ? "Submit to the AI tutor" : "Submit"));
+    ta.addEventListener("input", () => { upd(); if (st._t) clearTimeout(st._t); st._t = setTimeout(save, 800); });
+    wrap.append(ta);
+    if (open) { wrap.append(h("div", { class: "row", style: "margin-top:8px" }, sub, wc)); upd(); }
+    if (st.busy) wrap.append(h("div", { class: "fb info" }, h("span", { class: "spinner" }), " The tutor is reading your explanation…"));
+    if (st.err) wrap.append(h("div", { class: "fb bad" }, "AI error: " + st.err + " ", h("button", { class: "btn ghost small", onclick: () => { st.err = null; st.self = true; st.attempts.push({ text: ta.value, score: null, self: true }); save(); draw(); } }, "Grade myself instead")));
+
+    st.attempts.forEach((a, idx) => { if (!a.self && a.result) wrap.append(resultBlock(a, idx)); });
+    if (last && last.self) wrap.append(selfGrade(last));
+    if (canRevise) wrap.append(h("div", { class: "fb warn" }, "Revise once before moving on. Edit your text above to address the gaps (don't look anything up), then resubmit."));
+    const graded = last && (last.score != null);
+    if (graded && !open) wrap.append(followBlock());
+  };
+  const resultBlock = (a, idx) => {
+    const r = a.result;
+    const box = h("div", { class: "fb info", style: "margin-top:12px" });
+    box.append(h("div", { html: `<b>Attempt ${idx + 1} — ${a.score}/100</b>` }));
+    const ul = h("ul", { class: "rub" });
+    cfg.rubric.forEach((pt, i) => {
+      const rr = (r.rubric || []).find(x => +x.id === i + 1) || { status: "miss", note: "" };
+      const show = (a.score >= 70 || st.attempts.length >= 2) ? pt : "Point " + (i + 1) + (rr.status === "hit" ? ": covered" : ": see the tutor's note");
+      ul.append(h("li", {}, h("span", { class: "st " + rr.status }, rr.status), h("span", {}, show, rr.note ? h("div", { class: "small" }, rr.note) : null)));
+    });
+    box.append(ul);
+    if (r.misconception) box.append(h("div", { html: "<b class='r'>Misconception:</b> " + esc(r.misconception) }));
+    if (r.feedback) box.append(h("div", { style: "margin-top:6px" }, r.feedback));
+    return box;
+  };
+  const selfGrade = (a) => {
+    const box = h("div", { class: "fb info", style: "margin-top:12px" });
+    box.append(h("div", { html: "<b>Self-grading.</b> Compare your text with the rubric and the model answer. Be strict: tick a point only if you actually wrote it, not if you merely \"knew it\"." }));
+    a.checks = a.checks || cfg.rubric.map(() => false);
+    const ul = h("ul", { class: "rub" });
+    cfg.rubric.forEach((pt, i) => {
+      const cb = h("input", { type: "checkbox", disabled: a.score != null });
+      cb.checked = a.checks[i]; cb.addEventListener("change", () => { a.checks[i] = cb.checked; save(); });
+      ul.append(h("li", {}, cb, h("span", {}, pt)));
+    });
+    box.append(ul);
+    box.append(h("details", {}, h("summary", {}, "Model answer"), h("p", { style: "white-space:pre-wrap" }, cfg.model)));
+    if (a.score == null) box.append(h("button", { class: "btn small", onclick: () => {
+      a.score = Math.round(a.checks.filter(Boolean).length / cfg.rubric.length * 100);
+      a.result = { rubric: a.checks.map((c, i) => ({ id: i + 1, status: c ? "hit" : "miss" })) };
+      save(); draw();
+    } }, "Record my score"));
+    else box.append(h("div", {}, h("b", {}, `Self-score: ${a.score}/100`)));
+    return box;
+  };
+  const followBlock = () => {
+    const box = h("div", { class: "card", style: "margin:14px 0 0;background:var(--panel2)" });
+    const last = st.attempts[st.attempts.length - 1];
+    const fq = (last.result && last.result.followup) || cfg.follow;
+    box.append(h("div", { class: "kicker" }, "Why? · elaborate"), h("div", { class: "qt", style: "margin:4px 0 8px;font-weight:600" }, fq));
+    if (!st.followAns) {
+      const ta = h("textarea", { style: "min-height:90px", placeholder: "2–4 sentences." });
+      const b = h("button", { class: "btn small", onclick: async () => {
+        if (words(ta.value) < 12) return;
+        st.followAns = ta.value; st.followQ = fq; save();
+        if (hasAI() && !last.self) {
+          st.busyF = true; draw();
+          try {
+            st.followReply = await ai(SYS, `Follow-up question: ${fq}\nReference points: ${cfg.followA}\nRelated rubric: ${cfg.rubric.join(" | ")}\nLearner's answer: """${st.followAns}"""\nReturn JSON {"verdict":"solid"|"partial"|"off","reply":"2-4 sentences: confirm what is right, correct anything wrong, add one connecting insight from the paper"}`, 400);
+          } catch (e) { st.followReply = { verdict: "n/a", reply: "(AI unavailable) Reference: " + cfg.followA }; }
+          st.busyF = false;
+        } else st.followReply = { verdict: "self", reply: "Reference answer: " + cfg.followA };
+        save(); draw();
+      } }, "Submit");
+      box.append(ta, h("div", { class: "row", style: "margin-top:6px" }, b, h("span", { class: "small" }, "At least 12 words.")));
+    } else {
+      box.append(h("div", { class: "small", style: "white-space:pre-wrap" }, "You: " + st.followAns));
+      if (st.busyF) box.append(h("div", { class: "fb info" }, h("span", { class: "spinner" }), " Thinking…"));
+      else if (st.followReply) {
+        const v = st.followReply.verdict;
+        box.append(h("div", { class: "fb " + (v === "solid" ? "good" : v === "off" ? "bad" : "info") }, (v && v !== "self" && v !== "n/a" ? v.toUpperCase() + " — " : ""), st.followReply.reply));
+        if (!st.done) box.append(h("div", { class: "row", style: "margin-top:10px" }, h("button", { class: "btn", onclick: () => {
+          const fin = st.attempts[st.attempts.length - 1];
+          (fin.result.rubric || []).forEach(rr => { const pt = cfg.rubric[+rr.id - 1]; if (pt && rr.status !== "hit") addCard("[" + (cfg.src || "") + "] Explain the point that begins: “" + pt.split(/\s+/).slice(0, 5).join(" ") + " …”", pt, cfg.src); });
+          st.done = true; save(); onComplete();
+        } }, "Continue →")));
+      }
+    }
+    return box;
+  };
+  async function submit(text) {
+    st.draft = null;
+    if (!hasAI()) { st.self = true; st.attempts.push({ text, score: null, self: true }); save(); draw(); return; }
+    st.busy = true; st.err = null; draw();
+    try {
+      const r = await ai(SYS, `Task given to the learner (closed book): ${cfg.prompt}\n\nRubric points:\n${cfg.rubric.map((p, i) => (i + 1) + ". " + p).join("\n")}\n\nLearner's answer (attempt ${st.attempts.length + 1}):\n"""${text}"""\n\nReturn JSON: {"rubric":[{"id":1,"status":"hit"|"partial"|"miss","note":"<= 20 words, specific to what they wrote"}], "misconception":"one sentence naming any factual error, or empty string", "feedback":"2-3 sentences. If important points are missing, point toward the gap with a question or cue rather than stating the answer.", "followup":"one probing why/what-if question that targets their weakest point; answerable in 2-4 sentences"}. Include every rubric id.`);
+      const sc = Math.round((r.rubric || []).reduce((a, x) => a + (x.status === "hit" ? 1 : x.status === "partial" ? 0.5 : 0), 0) / cfg.rubric.length * 100);
+      st.attempts.push({ text, score: sc, result: r });
+    } catch (e) { st.err = e.message || String(e); }
+    st.busy = false; save(); draw();
+  }
+  draw(); return wrap;
+}
+
+/* ============================== labs ============================== */
+const LABS = {};
+function flagEl(st, flag, text) {
+  const el = h("div", { class: "done-flag " + (st.labs[flag] ? "ok" : "todo") }, (st.labs[flag] ? "✓ " : "◻ ") + text);
+  el.update = () => { el.className = "done-flag " + (st.labs[flag] ? "ok" : "todo"); el.textContent = (st.labs[flag] ? "✓ " : "◻ ") + text; };
+  return el;
+}
+
+/* ---- M1: failover simulator ---- */
+LABS.m1 = (st, gate) => {
+  const box = h("div", { class: "lab" });
+  box.append(h("h3", {}, "Failover lab: crash a server and watch who notices"));
+  box.append(h("p", { class: "small" }, "Four web servers. Each simulated minute brings 400 requests. Click a server to crash it. In round-robin DNS mode, ops removes the dead IP 10 minutes after the crash, and cached entries then expire at random within one TTL. Your task: watch a crash all the way to recovery in BOTH modes."));
+  const sim = { mode: "dns", ttl: 60, t: 0, nodes: [0, 1, 2, 3].map(i => ({ dead: null })), served: 0, failed: 0, hist: [], crashMode: null };
+  const ctrl = h("div", { class: "row" });
+  const modeBtns = [["dns", "Round-robin DNS"], ["l4", "Layer-4 switch pair"]].map(([k, l]) => h("button", { class: "chip", onclick: () => { sim.mode = k; reset(); } }, l));
+  const ttl = h("input", { type: "range", min: 10, max: 180, step: 10, value: 60 });
+  const ttlOut = h("output", {}, "60 min");
+  ttl.addEventListener("input", () => { sim.ttl = +ttl.value; ttlOut.textContent = ttl.value + " min"; });
+  ctrl.append(...modeBtns, h("button", { class: "btn ghost small", onclick: () => reset() }, "Reset"));
+  box.append(ctrl, h("div", { class: "ctrl" }, h("label", {}, "DNS TTL"), ttl, ttlOut));
+  const grid = h("div", { class: "nodes", style: "grid-template-columns:repeat(4,1fr);margin:10px 0" });
+  box.append(grid);
+  const stats = h("div", { class: "stats" }); box.append(stats);
+  const svg = s("svg", { viewBox: "0 0 600 110", width: "100%", role: "img", "aria-label": "failure rate over time" });
+  box.append(svg);
+  const f1 = flagEl(st, "dnsCrash", "Crash watched to recovery under round-robin DNS");
+  const f2 = flagEl(st, "l4Crash", "Crash watched to recovery under a layer-4 switch");
+  box.append(h("div", { class: "row" }, f1, f2));
+  function failFrac() {
+    let f = 0;
+    sim.nodes.forEach(n => {
+      if (n.dead == null) return;
+      const dt = sim.t - n.dead;
+      if (sim.mode === "l4") f += dt < 1 ? 0.25 : 0;
+      else f += dt < 10 ? 0.25 : Math.max(0, 0.25 * (1 - (dt - 10) / sim.ttl));
+    });
+    return f;
+  }
+  function reset() { sim.t = 0; sim.served = sim.failed = 0; sim.hist = []; sim.nodes.forEach(n => n.dead = null); sim.crashMode = null; drawAll(); }
+  function drawAll() {
+    modeBtns.forEach((b, i) => b.className = "chip" + ((i === 0) === (sim.mode === "dns") ? " sel" : ""));
+    ttl.disabled = sim.mode !== "dns";
+    grid.innerHTML = "";
+    sim.nodes.forEach((n, i) => grid.append(h("button", { class: "node" + (n.dead != null ? " dead" : ""), onclick: () => { if (n.dead == null) { n.dead = sim.t; sim.crashMode = sim.mode; } } },
+      h("div", { style: "font-weight:600" }, "10.0.0." + (i + 1)), h("div", {}, n.dead != null ? "DOWN" : "serving"))));
+    const f = failFrac();
+    stats.innerHTML = "";
+    [["Sim clock", "T+" + sim.t + " min", ""], ["Failing now", pct(f, 0), f > 0 ? "bad" : "good"], ["Served", sim.served.toLocaleString(), ""], ["Failed", sim.failed.toLocaleString(), sim.failed ? "bad" : ""]]
+      .forEach(([k, v, c]) => stats.append(h("div", { class: "stat" }, h("div", { class: "k" }, k), h("div", { class: "v " + c }, v))));
+    svg.innerHTML = "";
+    svg.append(s("line", { x1: 30, y1: 100, x2: 600, y2: 100, stroke: "var(--line)" }), s("text", { x: 0, y: 14 }, "30%"), s("text", { x: 0, y: 103 }, "0%"));
+    const pts = sim.hist.slice(-190).map((v, i) => `${30 + i * 3},${100 - v / 0.3 * 90}`).join(" ");
+    if (pts) svg.append(s("polyline", { points: pts, fill: "none", stroke: "var(--bad)", "stroke-width": 2 }));
+  }
+  const timer = setInterval(() => {
+    if (!document.body.contains(box)) return clearInterval(timer);
+    sim.t++;
+    const f = failFrac(); sim.hist.push(f);
+    sim.failed += Math.round(400 * f); sim.served += 400 - Math.round(400 * f);
+    const anyDead = sim.nodes.some(n => n.dead != null);
+    if (anyDead && f === 0 && sim.crashMode === sim.mode) {
+      const flag = sim.mode === "dns" ? "dnsCrash" : "l4Crash";
+      if (!st.labs[flag]) { st.labs[flag] = true; save(); f1.update(); f2.update(); gate.check(); }
+    }
+    drawAll();
+  }, 140);
+  drawAll();
+  return box;
+};
+
+/* ---- M2: outage placement ---- */
+LABS.m2 = (st, gate) => {
+  const L = [0.9, 0.6, 0.4, 0.3, 0.25, 0.3, 0.45, 0.7, 1.0, 1.2, 1.3, 1.35, 1.4, 1.35, 1.3, 1.3, 1.35, 1.45, 1.6, 1.75, 1.8, 1.7, 1.45, 1.15];
+  const load = x => { x = ((x % 24) + 24) % 24; const i = Math.floor(x), f = x - i; return L[i] * (1 - f) + L[(i + 1) % 24] * f; };
+  const integ = (a, b) => { let sum = 0, n = 200; for (let i = 0; i < n; i++) sum += load(a + (b - a) * (i + .5) / n); return sum * (b - a) / n; };
+  const total = integ(0, 24);
+  let minLoss = 1; for (let x = 0; x < 24; x += 0.05) minLoss = Math.min(minLoss, integ(x, x + 1) / total);
+  let start = st.labs.outStart != null ? st.labs.outStart : 19.5;
+  const box = h("div", { class: "lab" });
+  box.append(h("h3", {}, "Outage lab: same uptime, different yield"));
+  box.append(h("p", { class: "small" }, "Below is a day of query load (peak-to-average ≈ 1.6:1). You must take a 1-hour outage. Drag the red block. Watch which metric moves and which doesn't. Then lock in the placement that loses the fewest queries."));
+  const W = 600, H = 200, px = x => 30 + x / 24 * (W - 40), py = y => H - 25 - y / 2 * (H - 45);
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", style: "touch-action:none;cursor:ew-resize", role: "img", "aria-label": "daily load curve with draggable outage" });
+  const stats = h("div", { class: "stats" });
+  const flag = flagEl(st, "minOutage", "Outage placed to minimize lost yield");
+  const msg = h("div");
+  box.append(svg, stats, h("div", { class: "row" }, h("button", { class: "btn small", onclick: () => {
+    const loss = integ(start, start + 1) / total;
+    if (loss <= minLoss * 1.12) { st.labs.minOutage = true; save(); flag.update(); gate.check(); msg.innerHTML = `<div class="fb good">Locked. That's near the daily trough, where you lose ${pct(loss, 2)} of queries, compared with ${pct(integ(19.5, 20.5) / total, 2)} at peak. Uptime is identical either way. This is why Brewer measures yield.</div>`; }
+    else msg.innerHTML = `<div class="fb bad">You'd lose ${pct(loss, 2)} of the day's queries. Some placement loses much less. Look at the curve.</div>`;
+  } }, "Lock in placement"), flag), msg);
+  function draw() {
+    svg.innerHTML = "";
+    let d = ""; for (let x = 0; x <= 24; x += 0.25) d += (x ? "L" : "M") + px(x) + "," + py(load(x));
+    svg.append(s("path", { d: d + `L${px(24)},${py(0)}L${px(0)},${py(0)}Z`, fill: "var(--d)", opacity: .15 }), s("path", { d, fill: "none", stroke: "var(--d)", "stroke-width": 2 }));
+    for (let x = 0; x <= 24; x += 4) svg.append(s("text", { x: px(x) - 8, y: H - 8 }, String(x).padStart(2, "0") + ":00"));
+    const a = start, b = start + 1;
+    const clipped = [[a, Math.min(b, 24)]].concat(b > 24 ? [[0, b - 24]] : []);
+    clipped.forEach(([u, v]) => {
+      let dd = `M${px(u)},${py(0)}`; for (let x = u; x <= v + 1e-9; x += 0.05) dd += `L${px(x)},${py(load(x))}`; dd += `L${px(v)},${py(0)}Z`;
+      svg.append(s("rect", { x: px(u), y: 8, width: px(v) - px(u), height: py(0) - 8, fill: "var(--bad)", opacity: .12 }), s("path", { d: dd, fill: "var(--bad)", opacity: .55 }));
+    });
+    svg.append(s("text", { x: px(Math.min(a, 22.3)), y: 20 }, "OUTAGE"));
+    const loss = integ(a, b) / total;
+    stats.innerHTML = "";
+    [["Uptime", pct(23 / 24, 2), ""], ["Yield", pct(1 - loss, 2), loss > minLoss * 1.12 ? "warn" : "good"], ["Queries lost", pct(loss, 2), ""], ["Outage", fmtH(a) + "–" + fmtH(b), ""]]
+      .forEach(([k, v, c]) => stats.append(h("div", { class: "stat" }, h("div", { class: "k" }, k), h("div", { class: "v " + c }, v))));
+  }
+  const fmtH = x => { x = ((x % 24) + 24) % 24; const hh = Math.floor(x), mm = Math.round((x - hh) * 60); return String(hh).padStart(2, "0") + ":" + String(mm % 60).padStart(2, "0"); };
+  let drag = false;
+  const move = e => { const r = svg.getBoundingClientRect(); const x = ((e.clientX - r.left) / r.width * W - 30) / (W - 40) * 24; start = Math.max(0, Math.min(23.99, Math.round((x - 0.5) * 4) / 4)); st.labs.outStart = start; draw(); };
+  svg.addEventListener("pointerdown", e => { drag = true; svg.setPointerCapture(e.pointerId); move(e); });
+  svg.addEventListener("pointermove", e => { if (drag) move(e); });
+  svg.addEventListener("pointerup", () => { drag = false; save(); });
+  draw();
+  return box;
+};
+
+/* ---- M3: DQ explorer ---- */
+LABS.m3 = (st, gate) => {
+  const box = h("div", { class: "lab" });
+  box.append(h("h3", {}, "DQ explorer: trade data for queries"));
+  box.append(h("p", { class: "small" }, "Each node supplies 100 DQ units. The curve shows the maximum Q for each D (D × Q = DQ). The dot is your offered load. Above the curve means saturated. Set up the scenario in the first question below and find the answer with the sliders."));
+  const p = { n: 20, f: 0, d: 100, q: 1500 };
+  const mk = (label, key, min, max, step, fmt) => {
+    const inp = h("input", { type: "range", min, max, step, value: p[key] });
+    const out = h("output", {}, fmt(p[key]));
+    inp.addEventListener("input", () => { p[key] = +inp.value; if (p.f > p.n - 1) p.f = p.n - 1; out.textContent = fmt(p[key]); draw(); });
+    return h("div", { class: "ctrl" }, h("label", {}, label), inp, out);
+  };
+  box.append(mk("Nodes", "n", 1, 100, 1, v => v), mk("Failed nodes", "f", 0, 50, 1, v => v), mk("D (% of DB/query)", "d", 10, 100, 1, v => v + "%"), mk("Offered Q (q/s)", "q", 100, 5000, 50, v => v));
+  const W = 600, H = 230;
+  const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "DQ hyperbola" });
+  const stats = h("div", { class: "stats" });
+  box.append(svg, stats);
+  function draw() {
+    const f = Math.min(p.f, p.n - 1);
+    const DQ = (p.n - f) * 100, D = p.d / 100, qmax = DQ / D;
+    const yMax = Math.max(p.q * 1.4, DQ * 1.2, 500);
+    const px = d => 40 + (d - 0.1) / 0.9 * (W - 60), py = q => H - 25 - Math.min(q, yMax) / yMax * (H - 40);
+    svg.innerHTML = "";
+    svg.append(s("line", { x1: 40, y1: H - 25, x2: W - 20, y2: H - 25, stroke: "var(--line)" }), s("line", { x1: 40, y1: 10, x2: 40, y2: H - 25, stroke: "var(--line)" }));
+    let path = ""; for (let d = 0.1; d <= 1.0001; d += 0.01) { path += (path ? "L" : "M") + px(d) + "," + py(DQ / d); }
+    svg.append(s("path", { d: path + `L${px(1)},${py(yMax)}L${px(0.1)},${py(yMax)}Z`, fill: "var(--bad)", opacity: .07 }));
+    svg.append(s("path", { d: path, fill: "none", stroke: "var(--d)", "stroke-width": 2.5 }));
+    svg.append(s("line", { x1: 40, x2: W - 20, y1: py(p.q), y2: py(p.q), stroke: "var(--q)", "stroke-dasharray": "4 4" }));
+    svg.append(s("circle", { cx: px(D), cy: py(p.q), r: 7, fill: p.q <= qmax ? "var(--good)" : "var(--bad)" }));
+    svg.append(s("text", { x: W - 150, y: 22 }, "D × Q = " + DQ), s("text", { x: 44, y: H - 8 }, "D = 10%"), s("text", { x: W - 70, y: H - 8 }, "D = 100%"), s("text", { x: 44, y: 20 }, "Q"));
+    const yieldV = Math.min(1, qmax / p.q);
+    stats.innerHTML = "";
+    [["Total DQ", DQ, ""], ["Max Q at this D", Math.round(qmax), ""], ["Yield", pct(yieldV), yieldV < 1 ? "bad" : "good"], ["Harvest", p.d + "%", p.d < 100 ? "warn" : "good"]]
+      .forEach(([k, v, c]) => stats.append(h("div", { class: "stat" }, h("div", { class: "k" }, k), h("div", { class: "v " + c }, v))));
+  }
+  draw();
+  return box;
+};
+
+/* ---- M4: replication/partition sandbox ---- */
+LABS.m4 = (st, gate) => {
+  const box = h("div", { class: "lab" });
+  box.append(h("h3", {}, "Cluster sandbox: where do your faults land?"));
+  box.append(h("p", { class: "small" }, "Columns are partitions (P) and rows are replicas (R), so N = R × P. Each query fans out to every partition, as in a search engine. Click nodes to kill or revive them. Utilization is the offered load as a fraction of the healthy cluster's capacity. Challenge: at exactly 60% utilization, kill 2 nodes in the SAME partition and still keep 100% harvest and 100% yield. What's the smallest R that works?"));
+  const p = { R: 2, P: 4, u: 60, dead: {} };
+  const mk = (label, key, min, max, step, fmt) => {
+    const inp = h("input", { type: "range", min, max, step, value: p[key] });
+    const out = h("output", {}, fmt(p[key]));
+    inp.addEventListener("input", () => { p[key] = +inp.value; out.textContent = fmt(p[key]); if (key !== "u") p.dead = {}; draw(); });
+    return h("div", { class: "ctrl" }, h("label", {}, label), inp, out);
+  };
+  box.append(mk("Replicas R", "R", 1, 6, 1, v => v), mk("Partitions P", "P", 1, 6, 1, v => v), mk("Utilization", "u", 10, 100, 5, v => v + "%"));
+  const presets = h("div", { class: "row small" }, "Presets: ",
+    h("button", { class: "chip", onclick: () => setP(2, 1) }, "Fig 2-style: 2-node replicated"),
+    h("button", { class: "chip", onclick: () => setP(1, 2) }, "2-node partitioned"),
+    h("button", { class: "chip", onclick: () => setP(1, 6) }, "Web cache (no replication)"));
+  box.append(presets);
+  const grid = h("div", { class: "nodes", style: "margin:10px 0" });
+  const stats = h("div", { class: "stats" });
+  const flag = flagEl(st, "sandbox", "Two same-partition failures at 60% with no loss");
+  box.append(grid, stats, flag);
+  function setP(R, P) { p.R = R; p.P = P; p.dead = {}; box.querySelectorAll(".ctrl input")[0].value = R; box.querySelectorAll(".ctrl input")[1].value = P; box.querySelectorAll(".ctrl output")[0].textContent = R; box.querySelectorAll(".ctrl output")[1].textContent = P; draw(); }
+  function draw() {
+    const u = p.u / 100;
+    grid.style.gridTemplateColumns = `repeat(${p.P}, 1fr)`;
+    grid.innerHTML = "";
+    const alive = []; for (let j = 0; j < p.P; j++) { let r = 0; for (let i = 0; i < p.R; i++) if (!p.dead[i + "," + j]) r++; alive.push(r); }
+    for (let i = 0; i < p.R; i++) for (let j = 0; j < p.P; j++) {
+      const k = i + "," + j, dead = !!p.dead[k];
+      const ld = dead ? 0 : u * p.R / alive[j];
+      grid.append(h("button", { class: "node" + (dead ? " dead" : ld > 1.0001 ? " hot" : ""), title: dead ? "dead" : "load " + pct(ld, 0), onclick: () => { p.dead[k] = !p.dead[k]; draw(); } },
+        h("div", {}, "P" + (j + 1) + "·R" + (i + 1)), h("div", {}, dead ? "DOWN" : pct(ld, 0)), h("div", { class: "ld" }, h("i", { style: `width:${Math.min(100, ld * 100)}%` }))));
+    }
+    const live = alive.filter(r => r > 0);
+    const harvest = live.length / p.P;
+    const yieldV = live.length ? Math.min(...live.map(r => Math.min(1, r / (u * p.R)))) : 0;
+    const deadCount = Object.values(p.dead).filter(Boolean).length;
+    const lost = deadCount / (p.R * p.P);
+    stats.innerHTML = "";
+    [["Nodes", p.R * p.P, ""], ["DQ lost", pct(lost, 0), lost ? "warn" : ""], ["Harvest", pct(harvest, 0), harvest < 1 ? "bad" : "good"], ["Yield", pct(yieldV, 1), yieldV < 0.9999 ? "bad" : "good"]]
+      .forEach(([k, v, c]) => stats.append(h("div", { class: "stat" }, h("div", { class: "k" }, k), h("div", { class: "v " + c }, v))));
+    const sameGroup2 = alive.some(r => p.R - r >= 2);
+    if (p.u === 60 && sameGroup2 && harvest === 1 && yieldV >= 0.9999 && !st.labs.sandbox) { st.labs.sandbox = true; save(); flag.update(); gate.check(); }
+  }
+  draw();
+  return box;
+};
+
+/* ---- M5: overload console ---- */
+LABS.m5 = (st, gate) => {
+  const ROUNDS = [
+    { flag: "round1", name: "Round 1: Datek night", cap: 1000, mult: 3, story: "A market-moving announcement. Offered load is 3× normal (2,700 DQ units/s against 1,000 of capacity). Trades carry a guarantee: executed within 60 s or no commission.",
+      goals: [["Trades yield = 100%", r => r.cls[2].y >= 0.9999], ["Overall yield ≥ 95%", r => r.yield >= 0.95 - 1e-9], ["Search harvest ≥ 50%", r => r.harvest >= 0.5 - 1e-9]] },
+    { flag: "round2", name: "Round 2: No shortcuts", cap: 1000, mult: 3, story: "Same 3× spike, but a (hypothetical) contract forbids stale quotes and partial search results. You can't reduce D, so only admission control is left. Complete as many queries as possible.",
+      goals: [["Quotes must be live", r => r.fresh === 0], ["Search harvest = 100%", r => r.harvest >= 0.9999], ["Overall yield ≥ 60%", r => r.yield >= 0.6 - 1e-9]] },
+    { flag: "round3", name: "Round 3: Half the cluster", cap: 500, mult: 1, story: "A power failure (a correlated fault) takes out half the nodes during normal load: 900 DQ units/s offered, 500 available. Keep nearly everything flowing while giving up as little harvest as possible.",
+      goals: [["Trades yield = 100%", r => r.cls[2].y >= 0.9999], ["Overall yield ≥ 99%", r => r.yield >= 0.99 - 1e-9], ["Search harvest ≥ 85%", r => r.harvest >= 0.85 - 1e-9]] }
+  ];
+  const FRESH = [["Live", 0], ["5 s cache", 0.5], ["30 s cache", 0.8], ["60 s cache", 0.9]];
+  const box = h("div", { class: "lab" });
+  box.append(h("h3", {}, "Overload console: decide what gives"));
+  box.append(h("p", { class: "small" }, "A financial portal serves three kinds of query: quotes (D = 1), searches (D = 5 × the fraction of the index searched), and trades (D = 2). Capacity is measured in DQ units per second. Yield counts queries, not data. Choose your levers and commit when every goal is green. Clear all three rounds."));
+  let ri = ROUNDS.findIndex(r => !st.labs[r.flag]); if (ri < 0) ri = 0;
+  const c = { fresh: 0, db: 100, prio: false, cost: false };
+  const tabs = h("div", { class: "tabs" });
+  const story = h("div", { class: "fb info" });
+  const ctr = h("div");
+  const out = h("div");
+  box.append(tabs, story, ctr, out);
+  function sim(R) {
+    const cls = [
+      { n: "Quotes", rate: 400 * R.mult, D: 1 * (1 - FRESH[c.fresh][1]) },
+      { n: "Searches", rate: 80 * R.mult, D: 5 * c.db / 100 },
+      { n: "Trades", rate: 50 * R.mult, D: 2 }
+    ];
+    cls.forEach(x => { x.dem = x.rate * x.D; x.served = 0; });
+    let cap = R.cap;
+    const total = cls.reduce((a, x) => a + x.dem, 0);
+    if (total <= cap + 1e-9) cls.forEach(x => x.served = x.rate);
+    else {
+      let groups = [];
+      const rest = [0, 1, 2].filter(i => !(c.prio && i === 2));
+      if (c.prio) groups.push([2]);
+      if (c.cost) rest.sort((a, b) => cls[a].D - cls[b].D).forEach(i => groups.push([i])); else groups.push(rest);
+      for (const g of groups) {
+        const dem = g.reduce((a, i) => a + cls[i].dem, 0);
+        const f = dem <= 1e-12 ? 1 : Math.min(1, cap / dem);
+        g.forEach(i => { cls[i].served = cls[i].rate * f; });
+        cap -= dem * f; if (cap < 1e-9) cap = 0;
+      }
+    }
+    cls.forEach(x => x.y = x.rate ? x.served / x.rate : 1);
+    const offered = cls.reduce((a, x) => a + x.rate, 0), served = cls.reduce((a, x) => a + x.served, 0);
+    const used = cls.reduce((a, x) => a + x.served * x.D, 0);
+    return { cls, yield: served / offered, harvest: c.db / 100, fresh: FRESH[c.fresh][1], used, total };
+  }
+  function draw() {
+    const R = ROUNDS[ri];
+    tabs.innerHTML = "";
+    ROUNDS.forEach((r, i) => tabs.append(h("button", { class: "chip" + (i === ri ? " sel" : ""), onclick: () => { ri = i; draw(); } }, (st.labs[r.flag] ? "✓ " : "") + r.name)));
+    story.textContent = R.story + ` Capacity: ${R.cap} DQ/s.`;
+    ctr.innerHTML = "";
+    const fr = h("div", { class: "row" }, h("span", { class: "small", style: "width:150px" }, "Quote freshness"));
+    FRESH.forEach(([l], i) => fr.append(h("button", { class: "chip" + (c.fresh === i ? " sel" : ""), onclick: () => { c.fresh = i; draw(); } }, l)));
+    const db = h("input", { type: "range", min: 25, max: 100, step: 5, value: c.db });
+    const dbo = h("output", {}, c.db + "%");
+    db.addEventListener("input", () => { c.db = +db.value; dbo.textContent = c.db + "%"; drawOut(); });
+    const cb = (label, key, sub) => { const i = h("input", { type: "checkbox" }); i.checked = c[key]; i.addEventListener("change", () => { c[key] = i.checked; drawOut(); }); return h("label", { class: "row", style: "gap:6px;font-size:14px" }, i, h("span", {}, h("b", {}, label), " ", h("span", { class: "small" }, sub))); };
+    ctr.append(fr, h("div", { class: "ctrl" }, h("label", {}, "Index searched (D)"), db, dbo),
+      cb("Priority AC", "prio", "(serve trades first)"), cb("Cost-based AC", "cost", "(admit the cheapest queries first; otherwise overload is shared proportionally)"));
+    drawOut();
+  }
+  function drawOut() {
+    const R = ROUNDS[ri], r = sim(R);
+    out.innerHTML = "";
+    const t = h("table", { class: "t" }, h("tr", {}, h("th", {}, "Class"), h("th", { class: "n" }, "Offered/s"), h("th", { class: "n" }, "D"), h("th", { class: "n" }, "Served/s"), h("th", { class: "n" }, "Yield")));
+    r.cls.forEach(x => t.append(h("tr", {}, h("td", {}, x.n), h("td", { class: "n" }, Math.round(x.rate)), h("td", { class: "n" }, x.D.toFixed(2)), h("td", { class: "n" }, Math.round(x.served)), h("td", { class: "n" }, pct(x.y, 1)))));
+    out.append(h("div", { style: "overflow-x:auto" }, t));
+    const stats = h("div", { class: "stats" });
+    [["Demand", Math.round(r.total) + " DQ", r.total > R.cap ? "bad" : "good"], ["Overall yield", pct(r.yield, 1), ""], ["Search harvest", pct(r.harvest, 0), ""], ["Quote staleness", FRESH[c.fresh][0], ""]]
+      .forEach(([k, v, cl]) => stats.append(h("div", { class: "stat" }, h("div", { class: "k" }, k), h("div", { class: "v " + cl }, v))));
+    out.append(stats);
+    const gl = h("div", { class: "row" });
+    const ok = R.goals.map(([l, f]) => { const g = f(r); gl.append(h("span", { class: "pill " + (g ? "ok" : "no") }, (g ? "✓ " : "✗ ") + l)); return g; });
+    out.append(gl);
+    const msg = h("div");
+    out.append(h("div", { class: "row", style: "margin-top:10px" }, h("button", { class: "btn small", onclick: () => {
+      if (ok.every(Boolean)) {
+        st.labs[R.flag] = true; save(); gate.check();
+        const lesson = ["Priority AC protected the high-value class. Staler quotes and a smaller index cut D, so Q fit. You gave up freshness and harvest to keep yield.",
+          "With D locked, the only lever is which queries you admit. Cheapest-first maximizes the number of completed queries because yield counts queries, not data. Priority AC for trades would have cost you overall yield here: value and count pull in different directions.",
+          "When capacity halves, cutting D (staler quotes, a slightly smaller index) buys back almost all the yield. You chose exactly where the loss landed."][ri];
+        msg.innerHTML = `<div class="fb good"><b>Round cleared.</b> ${lesson}</div>`;
+        drawTabsOnly();
+      } else msg.innerHTML = `<div class="fb bad">Not every goal is met yet.</div>`;
+    } }, "Commit plan")), msg);
+  }
+  function drawTabsOnly() { const b = tabs.querySelectorAll("button"); ROUNDS.forEach((r, i) => b[i].textContent = (st.labs[r.flag] ? "✓ " : "") + r.name); }
+  draw();
+  return box;
+};
+
+/* ---- M6: site planner ---- */
+LABS.m6 = (st, gate) => {
+  const box = h("div", { class: "lab" });
+  box.append(h("h3", {}, "Disaster planner: lose a site"));
+  box.append(h("p", { class: "small" }, "Choose the number of sites (2 replicas each, all running at capacity). Click a site to hit it with an earthquake. Compare the exact D reduction with Inktomi's simple \"D = 50% for any disaster\" rule. Destroy a site in at least two different configurations."));
+  const p = { S: 3, dead: -1, seen: new Set(st.labs.quakeSeen || []) };
+  const inp = h("input", { type: "range", min: 2, max: 6, step: 1, value: 3 }); const o = h("output", {}, "3");
+  inp.addEventListener("input", () => { p.S = +inp.value; o.textContent = p.S; p.dead = -1; draw(); });
+  box.append(h("div", { class: "ctrl" }, h("label", {}, "Sites"), inp, o));
+  const grid = h("div", { class: "nodes", style: "margin:10px 0" });
+  const stats = h("div", { class: "stats" }); const note = h("div");
+  const flag = flagEl(st, "quake", "Disaster simulated in two configurations");
+  box.append(grid, stats, note, flag);
+  function draw() {
+    grid.style.gridTemplateColumns = `repeat(${p.S},1fr)`; grid.innerHTML = "";
+    const cities = ["Santa Clara", "Virginia", "London", "Tokyo", "Frankfurt", "Sydney"];
+    for (let i = 0; i < p.S; i++) {
+      const dead = p.dead === i, ld = p.dead < 0 ? 1 : p.S / (p.S - 1);
+      grid.append(h("button", { class: "node" + (dead ? " dead" : ld > 1 ? " hot" : ""), onclick: () => { p.dead = p.dead === i ? -1 : i; if (p.dead >= 0) { p.seen.add(p.S); st.labs.quakeSeen = [...p.seen]; if (p.seen.size >= 2 && !st.labs.quake) { st.labs.quake = true; flag.update(); gate.check(); } save(); } draw(); } },
+        h("div", { style: "font-weight:600" }, cities[i]), h("div", {}, dead ? "DESTROYED" : "2 replicas"), h("div", {}, dead ? "" : "load " + pct(ld, 0)), h("div", { class: "ld" }, h("i", { style: `width:${dead ? 0 : Math.min(100, ld * 100)}%` }))));
+    }
+    stats.innerHTML = ""; note.innerHTML = "";
+    if (p.dead < 0) { note.append(h("div", { class: "fb info" }, "All sites healthy. Pick one to destroy.")); return; }
+    const S = p.S, need = (S - 1) / S;
+    [["Replicas lost", `2 of ${2 * S}`, ""], ["Survivor load", pct(S / (S - 1), 0), "bad"], ["D for 100% yield", pct(need, 1), "warn"], ["Harvest (simple 50% rule)", "50%", need > 0.5 ? "warn" : "good"]]
+      .forEach(([k, v, c]) => stats.append(h("div", { class: "stat" }, h("div", { class: "k" }, k), h("div", { class: "v " + c }, v))));
+    note.append(h("div", { class: "fb info", html: `Exact plan: cut D to <b>${pct(need, 1)}</b> (Q rises ×${(S / (S - 1)).toFixed(2)}). The simple rule gives up <b>${pct(need - 0.5, 1)}</b> more harvest than needed${S === 2 ? ", though with 2 sites it's exact" : ""}. Load management: the dead site's switches are gone, DNS takes hours, and smart clients move users now.` }));
+  }
+  draw();
+  return box;
+};
+
+/* ---- M7: upgrade planner ---- */
+LABS.m7 = (st, gate) => {
+  const box = h("div", { class: "lab" });
+  box.append(h("h3", {}, "Upgrade planner: Figure 5, live"));
+  box.append(h("p", { class: "small" }, "A 4-node cluster. Each node needs u minutes to upgrade. Switch between the strategies and compare the shaded DQ loss. Look at all three."));
+  const p = { strat: "rolling", u: 5, seen: new Set(st.labs.upSeen || []) };
+  const SD = { fast: "Fast reboot", rolling: "Rolling upgrade", flip: "Big flip" };
+  const row = h("div", { class: "row" });
+  const inp = h("input", { type: "range", min: 1, max: 10, step: 1, value: 5 }); const o = h("output", {}, "5 min");
+  inp.addEventListener("input", () => { p.u = +inp.value; o.textContent = p.u + " min"; draw(); });
+  const svg = s("svg", { viewBox: "0 0 600 200", width: "100%", role: "img", "aria-label": "DQ over time during upgrade" });
+  const stats = h("div", { class: "stats" });
+  const flag = flagEl(st, "allThree", "Compared all three strategies");
+  box.append(row, h("div", { class: "ctrl" }, h("label", {}, "u (min per node)"), inp, o), svg, stats, flag);
+  function draw() {
+    row.innerHTML = "";
+    Object.entries(SD).forEach(([k, l]) => row.append(h("button", { class: "chip" + (p.strat === k ? " sel" : ""), onclick: () => { p.strat = k; p.seen.add(k); st.labs.upSeen = [...p.seen]; if (p.seen.size >= 3 && !st.labs.allThree) { st.labs.allThree = true; flag.update(); gate.check(); } save(); draw(); } }, l)));
+    const u = p.u, n = 4, T = n * u + 2 * u;
+    const segs = p.strat === "fast" ? [[u, u + u, 0]] : p.strat === "rolling" ? [[u, u + n * u, 0.75]] : [[u, u + 2 * u, 0.5]];
+    const px = t => 40 + t / T * 540, py = v => 170 - v * 140;
+    svg.innerHTML = "";
+    svg.append(s("line", { x1: 40, y1: py(0), x2: 580, y2: py(0), stroke: "var(--line)" }), s("line", { x1: 40, y1: py(1), x2: 580, y2: py(1), stroke: "var(--line)", "stroke-dasharray": "3 3" }), s("text", { x: 2, y: py(1) + 4 }, "100%"), s("text", { x: 2, y: py(0) + 4 }, "0"), s("text", { x: 520, y: 195 }, "time →"));
+    segs.forEach(([a, b, v]) => svg.append(s("rect", { x: px(a), y: py(1), width: px(b) - px(a), height: py(v) - py(1), fill: "var(--bad)", opacity: .35 })));
+    let d = `M${px(0)},${py(1)}`; segs.forEach(([a, b, v]) => { d += `L${px(a)},${py(1)}L${px(a)},${py(v)}L${px(b)},${py(v)}L${px(b)},${py(1)}`; }); d += `L${px(T)},${py(1)}`;
+    svg.append(s("path", { d, fill: "none", stroke: "var(--d)", "stroke-width": 2.5 }));
+    const [a, b, v] = segs[0];
+    stats.innerHTML = "";
+    [["ΔDQ (cluster-min)", ((b - a) * (1 - v)).toFixed(1), ""], ["Duration", (b - a) + " min", ""], ["Lowest DQ", pct(v, 0), v === 0 ? "bad" : "warn"], ["Versions coexist?", p.strat === "rolling" ? "YES" : "no", p.strat === "rolling" ? "warn" : ""]]
+      .forEach(([k, val, c]) => stats.append(h("div", { class: "stat" }, h("div", { class: "k" }, k), h("div", { class: "v " + c }, val))));
+  }
+  draw();
+  return box;
+};
+
+/* ============================== screens ============================== */
+function phaseCard(title, tag, state, why) {
+  const card = h("section", { class: "card" + (state === "locked" ? " locked" : "") });
+  card.append(h("div", { class: "phase-h" }, h("span", { class: "tag " + (state === "cur" ? "cur" : state === "ok" ? "ok" : "") }, state === "ok" ? "✓ " + tag : state === "locked" ? "🔒 " + tag : tag), h("h2", {}, title)));
+  if (why && state !== "locked") card.append(h("div", { class: "why" }, why));
+  return card;
+}
+function gateEl(cond, label, onGo, hint) {
+  const btn = h("button", { class: "btn", onclick: () => { if (cond()) onGo(); } }, label);
+  const hintEl = h("span", { class: "small" }, hint || "");
+  const el = h("div", { class: "gate" }, hintEl, btn);
+  el.check = () => { btn.disabled = !cond(); hintEl.textContent = cond() ? "Ready." : (hint || ""); };
+  el.check(); return el;
+}
+
+function renderIntro(main) {
+  main.append(h("div", { class: "kicker" }, "Eric A. Brewer · IEEE Internet Computing · July/Aug 2001"));
+  main.append(h("h1", {}, "Lessons from Giant-Scale Services: an on-call apprenticeship"));
+  main.append(h("p", { class: "lede" }, "You're joining the on-call rotation for a 2001-era giant-scale service. In about two hours you'll work through seven missions, each tied to one section of the paper, and finish with a night of incidents. You won't just read about the ideas. You'll be made to recall them, predict with them, and compute with them."));
+  const c = h("section", { class: "card" });
+  c.append(h("h2", {}, "How each mission works"));
+  c.append(h("div", { class: "method" },
+    h("div", {}, h("b", {}, "1 · Warm-up"), "Questions from earlier missions. Spaced, mixed retrieval makes memories stick."),
+    h("div", {}, h("b", {}, "2 · Predict"), "Commit to an answer before reading. A wrong guess still primes you to notice the answer."),
+    h("div", {}, h("b", {}, "3 · Read"), "Read the actual pages of the PDF, with condensed field notes."),
+    h("div", {}, h("b", {}, "4 · Close the book"), "The notes disappear. Explain the ideas from memory, get rubric feedback, then answer a \"why?\""),
+    h("div", {}, h("b", {}, "5 · Lab"), "Simulators and problems that force you to use the idea, not just recognize it.")));
+  c.append(h("p", { class: "small" }, "Rate your confidence as you go. At the end you'll see how well your confidence matched your accuracy, plus a review deck of everything you missed, to revisit in 1, 3, and 7 days. Keep the PDF open in another window. Progress saves in this browser automatically."));
+  const aiRow = h("div", { class: "fb " + (hasAI() ? "good" : "warn") }, hasAI() ? "AI tutor connected. Your explanations will get rubric feedback and follow-up questions." : "AI tutor is off. You'll grade your own explanations against a rubric, which works but is less challenging. ",
+    h("button", { class: "btn ghost small", onclick: openSettings }, hasAI() ? "Settings" : "Add DeepSeek key"));
+  c.append(aiRow);
+  main.append(c);
+  const pc = phaseCard("Pre-test: six questions, before you read a word", "8 min", S.preDone ? "ok" : "cur", "Guessing is expected. Pretesting improves later learning even when you get it wrong. No feedback yet: you'll see these again at the end and compare.");
+  PRE.forEach(id => pc.append(mcqEl(id, "pre:" + id, { defer: true, noDeck: true, deferMsg: "Locked in. You'll revisit this at the end.", onDone: () => g.check() })));
+  const g = gateEl(() => PRE.every(id => S.items["pre:" + id]), S.preDone ? "Go to Mission 01 →" : "Start Mission 01 →", () => { S.preDone = true; save(); go("m1"); }, "Answer all six (with confidence) to begin.");
+  pc.append(g); main.append(pc);
+}
+
+function renderModule(main, m) {
+  const st = MS(m.id), phases = phaseList(m);
+  main.append(h("div", { class: "kicker" }, `Mission ${m.code} · ~${m.min} min · ${m.pages.j}`), h("h1", {}, m.title));
+  const advance = () => { st.phase++; save(); render(); setTimeout(() => { const cards = document.querySelectorAll("main section.card:not(.locked)"); cards[cards.length - 1]?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30); };
+  phases.forEach((ph, i) => {
+    const state = i < st.phase ? "ok" : i === st.phase ? "cur" : "locked";
+    const cur = state === "cur";
+    let card;
+    if (ph === "warm") {
+      card = phaseCard("Warm-up: retrieve before you learn", "Retrieval", state, "Mixed questions from earlier missions. Answer from memory; spacing works because recall takes effort.");
+      if (state !== "locked") {
+        m.warm.forEach(id => card.append(itemEl(id, m.id + ":w:" + id, { onDone: () => g && g.check() })));
+        var g = cur ? gateEl(() => m.warm.every(id => S.items[m.id + ":w:" + id]), "Continue →", advance, "Answer every warm-up question.") : null;
+        if (g) card.append(g);
+      }
+    } else if (ph === "predict") {
+      card = phaseCard("Predict", "Commit", state, "Make a call before reading. Then read to find out whether you were right.");
+      if (state !== "locked") {
+        card.append(mcqEl(m.predict, m.id + ":predict", { defer: true, noDeck: true, deferMsg: "Prediction locked. Look for the answer as you read.", onDone: () => g2 && g2.check() }));
+        var g2 = cur ? gateEl(() => !!S.items[m.id + ":predict"], "Go to the reading →", advance, "Lock in a prediction.") : null;
+        if (g2) card.append(g2);
+      }
+    } else if (ph === "read") {
+      card = phaseCard("Read the source", "Read", state, "Read actively: say each idea to yourself in your own words. The notes vanish when you close the book.");
+      if (state === "cur") {
+        card.append(h("div", { class: "pdfref" }, h("div", { class: "big" }, m.pages.j), h("div", {}, h("div", { html: "<b>" + m.pages.pdf + "</b>" }), h("div", { class: "small" }, m.pages.sec))));
+        card.append(h("div", { class: "notes" }, h("div", { class: "kicker", style: "margin-bottom:6px" }, "Field notes"), h("ul", {}, ...m.notes.map(n => h("li", { html: n })))));
+        card.append(h("div", { class: "gate" }, h("span", { class: "small" }, "When you're done, close the book. You won't be able to reopen the notes until you've explained the ideas from memory."), h("button", { class: "btn", onclick: advance }, "Close the book →")));
+      } else if (state === "ok") {
+        const p = S.items[m.id + ":predict"], q = Q[m.predict];
+        card.append(h("div", { class: "fb " + (p && p.correct ? "good" : "bad"), html: `<b>${p && p.correct ? "Your prediction was right." : "Your prediction missed."}</b> You chose ${String.fromCharCode(65 + (p ? p.choice : 0))}; the answer is <b>${String.fromCharCode(65 + q.a)}. ${esc(q.o[q.a])}</b> ${esc(q.x)}` }));
+        if (p && !p.correct) addCard(q.q, q.o[q.a] + " — " + q.x, m.id + ":predict");
+        if (MS(m.id).explain.done) card.append(h("details", {}, h("summary", {}, "Reopen field notes"), h("ul", {}, ...m.notes.map(n => h("li", { html: n })))));
+        else card.append(h("div", { class: "small" }, "📕 Book closed. The notes unlock after your explanation."));
+      }
+    } else if (ph === "explain") {
+      card = phaseCard("Explain it from memory", "Generate", state, "Writing an explanation from memory is one of the most effective ways to learn. Struggling here is the point: don't peek at the PDF.");
+      if (state !== "locked") {
+        if (st.explain.done) {
+          const last = st.explain.attempts[st.explain.attempts.length - 1];
+          card.append(h("div", { class: "fb good" }, `Explanation scored ${last.score}/100${last.self ? " (self-graded)" : ""} after ${st.explain.attempts.length} attempt(s).`));
+          card.append(h("details", {}, h("summary", {}, "Model answer"), h("p", { style: "white-space:pre-wrap" }, m.explain.model)));
+        } else card.append(explainEl(Object.assign({ src: "M" + m.code }, m.explain), st.explain, advance));
+      }
+    } else if (ph === "lab") {
+      card = phaseCard("Lab", "Apply", state, "Use the idea on something concrete. The problems unlock hints after two misses and the answer after three. Anything you give up on goes to your review deck.");
+      if (state !== "locked") {
+        const g3 = gateEl(() => m.labs.every(f => st.labs[f]) && m.items.every(id => S.items[m.id + ":" + id]), "Complete mission →", advance, "Finish the lab tasks and every problem.");
+        const lab = LABS[m.id] ? LABS[m.id](st, g3) : null;
+        if (lab) card.append(lab);
+        m.items.forEach(id => card.append(itemEl(id, m.id + ":" + id, { onDone: () => g3.check() })));
+        if (cur) card.append(g3);
+      }
+    } else if (ph === "done") {
+      card = phaseCard("Mission complete", "Done", state);
+      if (state !== "locked") {
+        const idx = MODS.indexOf(m);
+        const nxt = MODS[idx + 1];
+        card.append(h("p", {}, "Before moving on, say the section's main idea out loud in one sentence. Then continue."));
+        card.append(h("button", { class: "btn", onclick: () => go(nxt ? nxt.id : "final") }, nxt ? `Mission ${nxt.code}: ${nxt.title} →` : "Incident Night →"));
+      }
+    }
+    main.append(card);
+  });
+}
+
+function renderFinal(main) {
+  const F = S.final;
+  main.append(h("div", { class: "kicker" }, "Final · ~25 min"), h("h1", {}, "Incident Night"), h("p", { class: "lede" }, "Closed book from here on. Four parts: blank-page recall, a night of mixed incidents, a rematch of the pre-test, and a design memo."));
+  const adv = () => { F.phase++; save(); render(); setTimeout(() => { const cards = document.querySelectorAll("main section.card:not(.locked)"); cards[cards.length - 1]?.scrollIntoView({ behavior: "smooth" }); }, 30); };
+  // 0 brain dump
+  {
+    const state = F.phase > 0 ? "ok" : "cur";
+    const c = phaseCard("Blank-page recall", "Free recall", state, "Write down everything you remember from the whole paper: principles, formulas, examples, numbers. Free recall is the most demanding form of retrieval, and the most useful. Take about 6 minutes.");
+    F.dump = F.dump || { text: "" };
+    if (!F.dump.result) {
+      const ta = h("textarea", { style: "min-height:220px", placeholder: "Brain dump. Fragments are fine." }); ta.value = F.dump.text;
+      const wc = h("span", { class: "small" });
+      const b = h("button", { class: "btn", onclick: async () => {
+        F.dump.text = ta.value;
+        if (hasAI()) {
+          b.disabled = true; wc.innerHTML = '<span class="spinner"></span> Comparing with the paper…';
+          try {
+            const r = await ai(SYS, `The learner wrote a closed-book free recall of the whole paper. Compare it with this list of key concepts:\n${CONCEPTS.map((c, i) => (i + 1) + ". " + c).join("\n")}\n\nLearner's recall:\n"""${ta.value}"""\n\nReturn JSON {"items":[{"id":1,"status":"hit"|"partial"|"miss"}], "errors":"any factual errors, or empty string", "feedback":"2-3 sentences on what they retained well and which clusters of ideas are weakest"}. Include all ${CONCEPTS.length} ids.`);
+            F.dump.result = r;
+          } catch (e) { F.dump.self = true; F.dump.result = { items: [], feedback: "AI unavailable (" + e.message + "). Self-check below." }; }
+        } else { F.dump.self = true; F.dump.result = { items: [] }; }
+        save(); render();
+      } }, "Compare with the paper");
+      const upd = () => { F.dump.text = ta.value; b.disabled = words(ta.value) < 40; wc.textContent = words(ta.value) + " words (at least 40)"; };
+      ta.addEventListener("input", () => { upd(); save(); });
+      c.append(ta, h("div", { class: "row", style: "margin-top:8px" }, b, wc)); upd();
+    } else {
+      const r = F.dump.result;
+      c.append(h("details", {}, h("summary", {}, "Your recall"), h("p", { style: "white-space:pre-wrap", class: "small" }, F.dump.text)));
+      if (r.feedback) c.append(h("div", { class: "fb info" }, r.feedback));
+      if (r.errors) c.append(h("div", { class: "fb bad" }, "Errors: " + r.errors));
+      const ul = h("ul", { class: "rub" });
+      F.dump.checks = F.dump.checks || CONCEPTS.map(() => false);
+      CONCEPTS.forEach((cn, i) => {
+        if (F.dump.self) {
+          const cb = h("input", { type: "checkbox", disabled: F.phase > 0 }); cb.checked = F.dump.checks[i];
+          cb.addEventListener("change", () => { F.dump.checks[i] = cb.checked; save(); });
+          ul.append(h("li", {}, cb, h("span", {}, cn)));
+        } else {
+          const it = (r.items || []).find(x => +x.id === i + 1) || { status: "miss" };
+          ul.append(h("li", {}, h("span", { class: "st " + it.status }, it.status), h("span", {}, cn)));
+        }
+      });
+      if (F.dump.self) c.append(h("div", { class: "small" }, "Tick only the concepts you actually wrote down."));
+      c.append(ul);
+      if (state === "cur") c.append(h("div", { class: "gate" }, h("span", { class: "small" }, "Missed concepts go to your review deck."), h("button", { class: "btn", onclick: () => {
+        CONCEPTS.forEach((cn, i) => {
+          const hit = F.dump.self ? F.dump.checks[i] : ((r.items || []).find(x => +x.id === i + 1) || {}).status === "hit";
+          if (!hit) addCard("Free-recall gap: what does the paper say about “" + cn.split(":")[0] + "”?", cn, "recall");
+        });
+        F.dumpScore = F.dump.self ? F.dump.checks.filter(Boolean).length : (r.items || []).reduce((a, x) => a + (x.status === "hit" ? 1 : x.status === "partial" ? .5 : 0), 0);
+        adv();
+      } }, "Continue →")));
+    }
+    main.append(c);
+  }
+  // 1 incident night
+  {
+    const state = F.phase > 1 ? "ok" : F.phase === 1 ? "cur" : "locked";
+    const c = phaseCard("On call, 02:00–07:00", "Interleaved", state, "Nine incidents, deliberately mixed across every section. Working out which idea applies is half the skill.");
+    if (state !== "locked") {
+      INCIDENT.forEach(id => c.append(itemEl(id, "fin:" + id, { onDone: () => g && g.check() })));
+      var g = state === "cur" ? gateEl(() => INCIDENT.every(id => S.items["fin:" + id]), "Continue →", adv, "Resolve every incident.") : null;
+      if (g) c.append(g);
+    }
+    main.append(c);
+  }
+  // 2 rematch
+  {
+    const state = F.phase > 2 ? "ok" : F.phase === 2 ? "cur" : "locked";
+    const c = phaseCard("Pre-test rematch", "Post-test", state, "The same six questions you guessed at two hours ago.");
+    if (state !== "locked") {
+      PRE.forEach(id => c.append(mcqEl(id, "post:" + id, { onDone: () => g4 && g4.check() })));
+      var g4 = state === "cur" ? gateEl(() => PRE.every(id => S.items["post:" + id]), "Continue →", adv, "Answer all six.") : null;
+      if (g4) c.append(g4);
+    }
+    main.append(c);
+  }
+  // 3 capstone
+  {
+    const state = F.phase > 3 ? "ok" : F.phase === 3 ? "cur" : "locked";
+    const c = phaseCard("Capstone: the PhotoBin design memo", "Transfer", state, "Apply everything to a new system. Transfer to an unfamiliar problem is the real test of understanding.");
+    if (state !== "locked") {
+      F.cap = F.cap || { attempts: [] };
+      if (F.cap.done) {
+        const last = F.cap.attempts[F.cap.attempts.length - 1];
+        c.append(h("div", { class: "fb good" }, `Memo scored ${last.score}/100${last.self ? " (self-graded)" : ""}.`), h("details", {}, h("summary", {}, "Model memo"), h("p", { style: "white-space:pre-wrap" }, CAPSTONE.model)));
+      } else c.append(explainEl({ prompt: CAPSTONE.prompt, rubric: CAPSTONE.rubric, model: CAPSTONE.model, follow: "Your spike plan: which availability metric are you sacrificing, and why is that the right one for PhotoBin's users?", followA: "Usually harvest: showing popular photos or thumbnails and failing long-tail requests is better than timing everyone out, because yield maps to user experience. Paying users' uploads (high value) should be protected by value-based admission control.", src: "Capstone", minWords: 180 }, F.cap, adv));
+    }
+    main.append(c);
+  }
+  // 4 wrap
+  {
+    const state = F.phase > 4 ? "ok" : F.phase === 4 ? "cur" : "locked";
+    const c = phaseCard("Sign off", "Done", state);
+    if (state !== "locked") c.append(h("p", {}, "That's the whole paper. Head to the debrief for your scores, your calibration, and a review deck to space out over the next week."), h("button", { class: "btn", onclick: () => { F.phase = 5; save(); go("summary"); } }, "Open the debrief →"));
+    main.append(c);
+  }
+}
+
+function renderSummary(main) {
+  main.append(h("div", { class: "kicker" }, "Debrief"), h("h1", {}, "What stuck, and what to review"));
+  const pre = PRE.filter(id => S.items["pre:" + id]?.correct).length, post = PRE.filter(id => S.items["post:" + id]?.correct).length;
+  const c1 = h("section", { class: "card" });
+  c1.append(h("h2", {}, "Before and after"));
+  c1.append(h("div", { class: "stats" },
+    h("div", { class: "stat" }, h("div", { class: "k" }, "Pre-test"), h("div", { class: "v" }, `${pre}/6`)),
+    h("div", { class: "stat" }, h("div", { class: "k" }, "Post-test"), h("div", { class: "v good" }, `${post}/6`)),
+    h("div", { class: "stat" }, h("div", { class: "k" }, "Free recall"), h("div", { class: "v" }, `${S.final.dumpScore != null ? S.final.dumpScore : "–"}/${CONCEPTS.length}`)),
+    h("div", { class: "stat" }, h("div", { class: "k" }, "Incidents"), h("div", { class: "v" }, `${INCIDENT.filter(id => S.items["fin:" + id]?.correct).length}/${INCIDENT.length}`)),
+    h("div", { class: "stat" }, h("div", { class: "k" }, "Time on task"), h("div", { class: "v" }, Math.round(S.active / 60) + " min"))));
+  const t = h("table", { class: "t" }, h("tr", {}, h("th", {}, "Mission"), h("th", { class: "n" }, "Prediction"), h("th", { class: "n" }, "Explanation"), h("th", { class: "n" }, "Attempts")));
+  MODS.forEach(m => {
+    const e = MS(m.id).explain, last = e.attempts[e.attempts.length - 1];
+    t.append(h("tr", {}, h("td", {}, m.code + " " + m.title), h("td", { class: "n" }, S.items[m.id + ":predict"]?.correct ? "✓" : "✗"), h("td", { class: "n" }, last && last.score != null ? last.score : "–"), h("td", { class: "n" }, e.attempts.length)));
+  });
+  const cap = S.final.cap && S.final.cap.attempts.length ? S.final.cap.attempts[S.final.cap.attempts.length - 1].score : "–";
+  t.append(h("tr", {}, h("td", {}, "Capstone memo"), h("td", {}), h("td", { class: "n" }, cap), h("td", {})));
+  c1.append(h("div", { style: "overflow-x:auto" }, t)); main.append(c1);
+
+  // calibration
+  const c2 = h("section", { class: "card" });
+  c2.append(h("h2", {}, "Calibration: did your confidence match your accuracy?"));
+  const all = Object.entries(S.items).filter(([k, v]) => v && v.conf && !k.startsWith("pre:") && !k.endsWith(":predict"));
+  const t2 = h("table", { class: "t" }, h("tr", {}, h("th", {}, "When you said…"), h("th", { class: "n" }, "Answers"), h("th", { class: "n" }, "Accuracy")));
+  CONF.forEach(([k, l]) => { const g = all.filter(([, v]) => v.conf === k); const acc = g.length ? g.filter(([, v]) => v.correct).length / g.length : null; t2.append(h("tr", {}, h("td", {}, l), h("td", { class: "n" }, g.length), h("td", { class: "n" }, acc == null ? "–" : pct(acc, 0)))); });
+  c2.append(t2);
+  const certainWrong = all.filter(([, v]) => v.conf === "c" && !v.correct).map(([, v]) => Q[v.qid]);
+  c2.append(h("p", { class: "small" }, certainWrong.length ? "Pay special attention to answers you were certain of and got wrong. These are misconceptions, not gaps:" : "No confident errors. Nice."));
+  if (certainWrong.length) c2.append(h("ul", {}, ...certainWrong.map(q => h("li", { class: "small" }, q.q + " → " + q.o[q.a]))));
+  main.append(c2);
+
+  // deck
+  const c3 = h("section", { class: "card" });
+  const d = new Date(); const day = n => { const x = new Date(d); x.setDate(x.getDate() + n); return x.toDateString(); };
+  c3.append(h("h2", {}, `Your review deck (${S.deck.length} cards)`));
+  c3.append(h("p", { class: "small" }, `Spacing beats cramming. Review these on ${day(1)}, ${day(3)}, and ${day(7)}. Cover the answer, recall it, then check. Export the deck to paste into Anki or your notes.`));
+  const md = "# Giant-Scale Services review deck\n\nReview: " + [day(1), day(3), day(7)].join(" · ") + "\n\n" + S.deck.map((c, i) => `${i + 1}. **Q:** ${c.front}\n   **A:** ${c.back}`).join("\n\n");
+  const tsv = S.deck.map(c => (c.front + "\t" + c.back).replace(/\n/g, " ")).join("\n");
+  const dl = (name, text, type) => { const a = h("a", { href: URL.createObjectURL(new Blob([text], { type })), download: name }); document.body.append(a); a.click(); a.remove(); };
+  c3.append(h("div", { class: "row" }, h("button", { class: "btn small", onclick: () => dl("giant-scale-review.md", md, "text/markdown") }, "Download .md"), h("button", { class: "btn ghost small", onclick: () => dl("giant-scale-anki.tsv", tsv, "text/tab-separated-values") }, "Download Anki .tsv"), h("button", { class: "btn ghost small", onclick: () => { navigator.clipboard?.writeText(md); } }, "Copy")));
+  const list = h("div", { style: "margin-top:12px" });
+  S.deck.forEach(cd => list.append(h("details", { class: "q" }, h("summary", {}, cd.front), h("p", { class: "small" }, cd.back))));
+  if (!S.deck.length) list.append(h("p", { class: "small" }, "Empty. You missed nothing along the way. Review the seven lessons in the Conclusions anyway."));
+  c3.append(list); main.append(c3);
+}
+
+function render() {
+  if (!unlocked(S.cur)) S.cur = "intro";
+  renderSide(); drawClock();
+  const main = $("#main"); main.innerHTML = "";
+  if (S.cur === "intro") renderIntro(main);
+  else if (S.cur === "final") renderFinal(main);
+  else if (S.cur === "summary") renderSummary(main);
+  else renderModule(main, MODS.find(m => m.id === S.cur));
+}
+
+/* ============================== settings ============================== */
+function openSettings() { $("#apiKey").value = S.settings.key; $("#apiModel").value = S.settings.model; $("#testOut").textContent = ""; $("#settings").showModal(); }
+$("#settingsBtn").onclick = openSettings;
+$("#closeSettings").onclick = () => $("#settings").close();
+$("#saveKey").onclick = () => { S.settings.key = $("#apiKey").value.trim(); S.settings.model = $("#apiModel").value.trim() || "deepseek-chat"; save(); $("#settings").close(); render(); };
+$("#testKey").onclick = async () => {
+  S.settings.key = $("#apiKey").value.trim(); S.settings.model = $("#apiModel").value.trim() || "deepseek-chat";
+  $("#testOut").innerHTML = '<span class="spinner"></span> Testing…';
+  try { const r = await ai("Reply only with JSON.", 'Return {"ok":true}', 20); $("#testOut").textContent = r.ok ? "✓ Connected." : "Connected, but got an unexpected reply."; save(); }
+  catch (e) { $("#testOut").textContent = "✗ " + e.message; }
+};
+(() => { const k = new URLSearchParams(location.hash.slice(1)).get("key"); if (k) { S.settings.key = k; save(); history.replaceState(null, "", location.pathname + location.search); } })();
+
+render();
+</script>
+</body>
+</html>
