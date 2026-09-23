@@ -14,7 +14,15 @@ npm start                     # or: node server.js
 # open http://localhost:8080
 ```
 
-Or pass the settings inline:
+On **Windows**, double-click `start.bat`. It checks for Node.js, creates `.env` and opens it in Notepad so you can paste your key, starts the server on `localhost:8080`, and opens your browser. You can also do it by hand in Command Prompt:
+
+```bat
+copy .env.example .env
+notepad .env
+node server.js
+```
+
+Or pass the settings inline: (macOS/Linux)
 
 ```bash
 DEEPSEEK_API_KEY=sk-... node server.js
