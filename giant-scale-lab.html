@@ -179,8 +179,11 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 
 <dialog id="settings">
   <h2>AI tutor settings</h2>
-  <p class="small">The AI tutor grades your closed-book explanations, asks follow-up questions, and reviews your final design memo. Calls go straight from your browser to DeepSeek. The key is saved only in this browser's localStorage. Without a key, everything still works: you grade yourself against the rubric instead.</p>
-  <label class="small">DeepSeek API key</label>
+  <p class="small">The AI tutor grades your closed-book explanations, asks follow-up questions, and reviews your final design memo. Without a key, everything still works: you grade yourself against the rubric instead.</p>
+  <p class="small" id="proxyNote"></p>
+  <div id="codeRow" hidden><label class="small">Access code</label>
+  <input type="password" id="apiCode" style="width:100%" autocomplete="off"><div style="height:8px"></div></div>
+  <label class="small" id="keyLabel">DeepSeek API key</label>
   <input type="password" id="apiKey" style="width:100%" placeholder="sk-…" autocomplete="off">
   <div style="height:8px"></div>
   <label class="small">Model</label>
@@ -233,18 +236,26 @@ function addCard(front, back, src) {
 }
 
 /* ============================== AI ============================== */
-const hasAI = () => !!(S.settings.key || "").trim();
+// When served by server.js, calls go through its /api/chat proxy (browsers can't
+// call DeepSeek directly because of CORS). Opened as a local file, the page calls
+// DeepSeek directly, which only works if the browser allows it.
+const SERVER = { proxy: false, serverKey: false, needsCode: false };
+const userKey = () => (S.settings.key || "").trim();
+const hasAI = () => !!userKey() || (SERVER.serverKey && (!SERVER.needsCode || !!(S.settings.code || "").trim()));
 async function ai(system, user, maxTokens = 900) {
-  const res = await fetch("https://api.deepseek.com/chat/completions", {
+  const headers = { "Content-Type": "application/json" };
+  if (userKey()) headers.Authorization = "Bearer " + userKey();
+  if (SERVER.proxy && S.settings.code) headers["X-Access-Code"] = S.settings.code.trim();
+  const res = await fetch(SERVER.proxy ? "api/chat" : "https://api.deepseek.com/chat/completions", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + S.settings.key.trim() },
+    headers,
     body: JSON.stringify({
       model: (S.settings.model || "deepseek-chat").trim(), temperature: 0.2, max_tokens: maxTokens,
       response_format: { type: "json_object" },
       messages: [{ role: "system", content: system }, { role: "user", content: user }]
     })
   });
-  if (!res.ok) { let t = ""; try { t = await res.text(); } catch (e) {} throw new Error("API " + res.status + " " + t.slice(0, 200)); }
+  if (!res.ok) { let t = ""; try { t = await res.text(); t = JSON.parse(t).error?.message || JSON.parse(t).error || t; } catch (e) {} throw new Error("API " + res.status + " " + String(t).slice(0, 200)); }
   const j = await res.json();
   let c = j.choices?.[0]?.message?.content || "";
   c = c.replace(/^```(?:json)?\s*|\s*```$/g, "");
@@ -1482,12 +1493,21 @@ function render() {
 }
 
 /* ============================== settings ============================== */
-function openSettings() { $("#apiKey").value = S.settings.key; $("#apiModel").value = S.settings.model; $("#testOut").textContent = ""; $("#settings").showModal(); }
+function openSettings() {
+  $("#apiKey").value = S.settings.key; $("#apiModel").value = S.settings.model; $("#apiCode").value = S.settings.code || ""; $("#testOut").textContent = "";
+  $("#codeRow").hidden = !SERVER.needsCode;
+  $("#keyLabel").textContent = SERVER.serverKey ? "Your own DeepSeek API key (optional; the server has one)" : "DeepSeek API key";
+  $("#proxyNote").textContent = !SERVER.proxy ? "Opened as a local file: calls go straight from your browser to DeepSeek, which may be blocked (CORS). Run server.js for reliable AI calls. See the README."
+    : SERVER.serverKey ? (SERVER.needsCode ? "This server provides the AI tutor. Enter the access code you were given." : "This server provides the AI tutor, so no key is needed.")
+    : "Calls go through this server. Paste your key; it's saved only in this browser.";
+  $("#settings").showModal();
+}
+function readSettings() { S.settings.key = $("#apiKey").value.trim(); S.settings.code = $("#apiCode").value.trim(); S.settings.model = $("#apiModel").value.trim() || "deepseek-chat"; }
 $("#settingsBtn").onclick = openSettings;
 $("#closeSettings").onclick = () => $("#settings").close();
-$("#saveKey").onclick = () => { S.settings.key = $("#apiKey").value.trim(); S.settings.model = $("#apiModel").value.trim() || "deepseek-chat"; save(); $("#settings").close(); render(); };
+$("#saveKey").onclick = () => { readSettings(); save(); $("#settings").close(); render(); };
 $("#testKey").onclick = async () => {
-  S.settings.key = $("#apiKey").value.trim(); S.settings.model = $("#apiModel").value.trim() || "deepseek-chat";
+  readSettings();
   $("#testOut").innerHTML = '<span class="spinner"></span> Testing…';
   try { const r = await ai("Reply only with JSON.", 'Return {"ok":true}', 20); $("#testOut").textContent = r.ok ? "✓ Connected." : "Connected, but got an unexpected reply."; save(); }
   catch (e) { $("#testOut").textContent = "✗ " + e.message; }
@@ -1495,6 +1515,11 @@ $("#testKey").onclick = async () => {
 (() => { const k = new URLSearchParams(location.hash.slice(1)).get("key"); if (k) { S.settings.key = k; save(); history.replaceState(null, "", location.pathname + location.search); } })();
 
 render();
+if (location.protocol.startsWith("http")) {
+  fetch("api/status").then(r => r.ok ? r.json() : null).then(j => {
+    if (j && j.proxy) { Object.assign(SERVER, j); if (!S.settings.model || S.settings.model === "deepseek-chat") S.settings.model = j.model || "deepseek-chat"; render(); }
+  }).catch(() => {});
+}
 </script>
 </body>
 </html>

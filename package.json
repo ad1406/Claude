@@ -1,0 +1,13 @@
+{
+  "name": "giant-scale-on-call",
+  "version": "1.0.0",
+  "description": "Interactive course on Brewer's 'Lessons from Giant-Scale Services', with a DeepSeek AI-tutor proxy",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
