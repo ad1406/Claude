@@ -145,6 +145,11 @@ dialog::backdrop{background:rgba(0,0,0,.45)}
 .method{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0}
 .method div{background:var(--panel2);border-radius:10px;padding:10px 12px;font-size:14px}
 .method b{display:block;font-size:13px;color:var(--accent);font-family:"IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.05em}
+.reader{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:10px 0 14px;background:var(--panel2)}
+.reader-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--panel)}
+.reader-pages{max-height:78vh;overflow:auto;padding:8px;text-align:center}
+.reader-pages canvas{display:block;margin:0 auto 6px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18);max-width:none}
+.reader-pn{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--muted);margin:6px 0 4px}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
 .big-num{font-family:"IBM Plex Mono",monospace;font-size:34px;font-weight:600}
@@ -366,7 +371,7 @@ const Q = {
 const MODS = [
   { id: "m1", code: "01", title: "The Basic Model & Load Management", min: 16,
     warm: [], predict: "m1p",
-    pages: { j: "pp. 46–49", pdf: "PDF pages 1–4", sec: "\"The Basic Model\", the sidebar \"Clusters in Giant-Scale Services\", and \"Load Management\" (stop at \"High Availability\"). Look closely at Figures 1–3." },
+    pages: { j: "pp. 46–49", pdf: "PDF pages 1–4", from: 1, to: 4, sec: "\"The Basic Model\", the sidebar \"Clusters in Giant-Scale Services\", and \"Load Management\" (stop at \"High Availability\"). Look closely at Figures 1–3." },
     notes: [
       "Scope: single-site, single-owner, well-connected clusters. Databases, WAN issues, and security are deliberately left out.",
       "Advantages of infrastructure services include access from anywhere, many device types, groupware, <b>lower cost</b> (devices run under 4% utilization vs about 80% for infrastructure, roughly 20×), and <b>simplified updates</b>.",
@@ -393,7 +398,7 @@ const MODS = [
 
   { id: "m2", code: "02", title: "Availability: Uptime, Yield, Harvest", min: 15,
     warm: ["r1a"], predict: "m2p",
-    pages: { j: "pp. 49–50", pdf: "PDF pages 4–5", sec: "\"High Availability\" and \"Availability Metrics\", through the paragraph ending \"…the capacity in queries per second remains the same.\"" },
+    pages: { j: "pp. 49–50", pdf: "PDF pages 4–5", from: 4, to: 5, sec: "\"High Availability\" and \"Availability Metrics\", through the paragraph ending \"…the capacity in queries per second remains the same.\"" },
     notes: [
       "The goal is the availability of the phone, rail, and water systems, while also coping with constant feature changes and unpredictable growth. Fig 4 shows a cluster built for availability: symmetry, no people, few cables, no monitors.",
       "<b>Uptime</b> is the fraction of time the site handles traffic, measured in \"nines\" (four nines is under 60 s of downtime per week). <code>uptime = (MTBF − MTTR) / MTBF</code>.",
@@ -419,7 +424,7 @@ const MODS = [
 
   { id: "m3", code: "03", title: "The DQ Principle", min: 15,
     warm: ["r2a", "r1b"], predict: "m3p",
-    pages: { j: "p. 51", pdf: "PDF page 6", sec: "\"DQ Principle\", the whole section, including the paragraph on its limits (computation-bound and long-latency sites)." },
+    pages: { j: "p. 51", pdf: "PDF page 6", from: 6, to: 6, sec: "\"DQ Principle\", the whole section, including the paragraph on its limits (computation-bound and long-latency sites)." },
     notes: [
       "<code>Data per query × queries per second → constant</code>. It's a principle rather than a literal law, but it's very useful.",
       "Why it holds: capacity is limited by a physical bottleneck tied to <b>data movement</b> (total I/O bandwidth, seeks/sec). At the high utilization typical of giant-scale systems, DQ approaches that limit. Brewer prefers bandwidth to I/O count as the metric.",
@@ -445,7 +450,7 @@ const MODS = [
 
   { id: "m4", code: "04", title: "Replication vs. Partitioning", min: 18,
     warm: ["r3a", "r2b"], predict: "m4p",
-    pages: { j: "pp. 51–52", pdf: "PDF pages 6–7", sec: "\"Replication vs. Partitioning\" and Table 1 (\"Overload due to failures\"), through \"…All three use randomization.\"" },
+    pages: { j: "pp. 51–52", pdf: "PDF pages 6–7", from: 6, to: 7, sec: "\"Replication vs. Partitioning\" and Table 1 (\"Overload due to failures\"), through \"…All three use randomization.\"" },
     notes: [
       "Two-node cluster, one fault: the <b>replicated</b> version keeps 100% harvest but drops to 50% yield (at high load). The <b>partitioned</b> version keeps 100% yield but drops to 50% harvest. Both start with the same DQ and lose half of it. Replicas keep D and lose Q. Partitions keep Q and lose D.",
       "The traditional \"replication is better\" view silently assumes spare capacity. That's the <b>load redirection problem</b>: survivors must absorb the failed nodes' queries, which is unrealistic at high utilization.",
@@ -471,7 +476,7 @@ const MODS = [
 
   { id: "m5", code: "05", title: "Graceful Degradation", min: 18,
     warm: ["r4a", "r1c"], predict: "m5p",
-    pages: { j: "pp. 52–53", pdf: "PDF pages 7–8", sec: "\"Graceful Degradation\", including the three bullet examples (cost-based AC, priority-based AC, reduced data freshness)." },
+    pages: { j: "pp. 52–53", pdf: "PDF pages 7–8", from: 7, to: 8, sec: "\"Graceful Degradation\", including the three bullet examples (cost-based AC, priority-based AC, reduced data freshness)." },
     notes: [
       "Saturation can't be designed away: <b>peak-to-average</b> ratios run from 1.6:1 to 6:1, <b>single-event bursts</b> happen (Moviephone was overloaded even with 10× capacity), and some faults are <b>correlated</b> (power, natural disasters).",
       "The DQ principle gives two options: <b>limit Q to maintain D</b> (admission control, which protects <b>harvest</b>) or <b>reduce D to raise Q</b> (dynamic database reduction, which protects <b>yield</b>), or a combination. Halving the effective database roughly doubles capacity.",
@@ -497,7 +502,7 @@ const MODS = [
 
   { id: "m6", code: "06", title: "Disaster Tolerance", min: 12,
     warm: ["r5a", "r3b"], predict: "m6p",
-    pages: { j: "p. 53", pdf: "PDF page 8", sec: "\"Disaster Tolerance\" (the whole section; it's short, so read it twice)." },
+    pages: { j: "p. 53", pdf: "PDF page 8", from: 8, to: 8, sec: "\"Disaster Tolerance\" (the whole section; it's short, so read it twice)." },
     notes: [
       "Disaster tolerance is simply <b>managing replica groups + graceful degradation</b>. A disaster is the complete loss of one or more replicas. Natural disasters take out every replica at one location, while fires or power failures may take out just one.",
       "The design question: <b>how many locations, and how many replicas at each?</b>",
@@ -522,7 +527,7 @@ const MODS = [
 
   { id: "m7", code: "07", title: "Online Evolution & Growth", min: 16,
     warm: ["r6a", "r4b", "r2c"], predict: "m7p",
-    pages: { j: "pp. 53–55", pdf: "PDF pages 8–10", sec: "\"Online Evolution and Growth\", Figure 5, and \"Conclusions\" (the seven lessons)." },
+    pages: { j: "pp. 53–55", pdf: "PDF pages 8–10", from: 8, to: 10, sec: "\"Online Evolution and Growth\", Figure 5, and \"Conclusions\" (the seven lessons)." },
     notes: [
       "The classic high-availability tenet of <b>minimal change</b> clashes with growth and \"Internet time\". Software is never perfect (slow leaks, nondeterministic bugs), so the target is a set MTBF, a <b>low MTTR</b>, and <b>no cascading failures</b>.",
       "Treat upgrades as <b>controlled failures</b>, a temporary, planned reduction in DQ. <code>ΔDQ = n · u · (average DQ/node) = DQ · u</code>, where u is the upgrade time per node.",
@@ -1231,6 +1236,72 @@ LABS.m7 = (st, gate) => {
   return box;
 };
 
+/* ============================== paper viewer ============================== */
+// Renders pages of paper.pdf with PDF.js (vendored in vendor/pdfjs). When the
+// page is opened as a local file the browser can't fetch paper.pdf, so the
+// viewer asks the learner to pick the PDF once per session instead.
+const PAPER = { doc: null, data: null };
+function loadScript(src) {
+  return new Promise((res, rej) => { const el = document.createElement("script"); el.src = src; el.onload = res; el.onerror = () => rej(new Error("Could not load " + src)); document.head.append(el); });
+}
+async function paperDoc() {
+  if (PAPER.doc) return PAPER.doc;
+  if (!PAPER.data && location.protocol === "file:") throw new Error("opened as a local file");
+  if (!window.pdfjsLib) await loadScript("vendor/pdfjs/pdf.min.js");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdfjs/pdf.worker.min.js";
+  const src = PAPER.data ? { data: PAPER.data.slice() } : { url: "paper.pdf" };
+  PAPER.doc = await pdfjsLib.getDocument(src).promise;
+  return PAPER.doc;
+}
+function paperViewer(from, to) {
+  const v = { all: false, zoom: 1 };
+  const wrap = h("div", { class: "reader" });
+  const bar = h("div", { class: "reader-bar" });
+  const pages = h("div", { class: "reader-pages" });
+  wrap.append(bar, pages);
+  let token = 0;
+  const tb = (label, fn, title) => h("button", { class: "btn ghost small", title: title || label, onclick: fn }, label);
+  async function draw() {
+    const my = ++token;
+    bar.innerHTML = "";
+    bar.append(h("span", { class: "small", style: "flex:1" }, v.all ? "Whole paper · journal pp. 46–55" : `This section · journal ${from === to ? "p. " + (45 + from) : "pp. " + (45 + from) + "–" + (45 + to)}`),
+      tb("−", () => { v.zoom = Math.max(0.6, +(v.zoom - 0.2).toFixed(1)); draw(); }, "Zoom out"),
+      h("span", { class: "small mono" }, Math.round(v.zoom * 100) + "%"),
+      tb("+", () => { v.zoom = Math.min(2.4, +(v.zoom + 0.2).toFixed(1)); draw(); }, "Zoom in"),
+      tb(v.all ? "Just this section" : "Whole paper", () => { v.all = !v.all; draw(); }));
+    pages.innerHTML = "";
+    pages.append(h("div", { class: "small", style: "padding:20px" }, h("span", { class: "spinner" }), " Loading the paper…"));
+    let doc;
+    try { doc = await paperDoc(); } catch (e) { if (my === token) { pages.innerHTML = ""; pages.append(fallback(e)); } return; }
+    if (my !== token) return;
+    pages.innerHTML = "";
+    const a = v.all ? 1 : from, b = v.all ? doc.numPages : to;
+    const width = Math.max(260, pages.clientWidth - 20) * v.zoom;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    for (let n = a; n <= b; n++) {
+      const page = await doc.getPage(n);
+      if (my !== token) return;
+      const base = page.getViewport({ scale: 1 });
+      const vp = page.getViewport({ scale: width / base.width * dpr });
+      const c = h("canvas", { width: Math.floor(vp.width), height: Math.floor(vp.height), style: `width:${Math.floor(width)}px`, role: "img", "aria-label": "Paper page " + n });
+      pages.append(h("div", { class: "reader-pn" }, `PDF page ${n} · journal p. ${45 + n}`), c);
+      await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+    }
+  }
+  function fallback(e) {
+    const inp = h("input", { type: "file", accept: "application/pdf" });
+    inp.addEventListener("change", async () => {
+      const f = inp.files[0]; if (!f) return;
+      PAPER.data = new Uint8Array(await f.arrayBuffer()); PAPER.doc = null; draw();
+    });
+    return h("div", { class: "fb warn", style: "text-align:left;margin:8px" },
+      h("div", {}, location.protocol === "file:" ? "This page was opened as a local file, so the browser can't load the paper by itself. Run server.js (see the README), or pick the paper's PDF here:" : "Couldn't load the paper (" + e.message + "). Pick the PDF file to read it here:"),
+      h("div", { style: "margin-top:8px" }, inp));
+  }
+  setTimeout(draw, 0);
+  return wrap;
+}
+
 /* ============================== screens ============================== */
 function phaseCard(title, tag, state, why) {
   const card = h("section", { class: "card" + (state === "locked" ? " locked" : "") });
@@ -1255,10 +1326,10 @@ function renderIntro(main) {
   c.append(h("div", { class: "method" },
     h("div", {}, h("b", {}, "1 · Warm-up"), "Questions from earlier missions. Spaced, mixed retrieval makes memories stick."),
     h("div", {}, h("b", {}, "2 · Predict"), "Commit to an answer before reading. A wrong guess still primes you to notice the answer."),
-    h("div", {}, h("b", {}, "3 · Read"), "Read the actual pages of the PDF, with condensed field notes."),
+    h("div", {}, h("b", {}, "3 · Read"), "Read the actual pages of the paper, shown right here, with condensed field notes."),
     h("div", {}, h("b", {}, "4 · Close the book"), "The notes disappear. Explain the ideas from memory, get rubric feedback, then answer a \"why?\""),
     h("div", {}, h("b", {}, "5 · Lab"), "Simulators and problems that force you to use the idea, not just recognize it.")));
-  c.append(h("p", { class: "small" }, "Rate your confidence as you go. At the end you'll see how well your confidence matched your accuracy, plus a review deck of everything you missed, to revisit in 1, 3, and 7 days. Keep the PDF open in another window. Progress saves in this browser automatically."));
+  c.append(h("p", { class: "small" }, "Rate your confidence as you go. At the end you'll see how well your confidence matched your accuracy, plus a review deck of everything you missed, to revisit in 1, 3, and 7 days. The paper is built in, and each mission opens it at the right pages. Progress saves in this browser automatically."));
   const aiRow = h("div", { class: "fb " + (hasAI() ? "good" : "warn") }, hasAI() ? "AI tutor connected. Your explanations will get rubric feedback and follow-up questions." : "AI tutor is off. You'll grade your own explanations against a rubric, which works but is less challenging. ",
     h("button", { class: "btn ghost small", onclick: openSettings }, hasAI() ? "Settings" : "Add DeepSeek key"));
   c.append(aiRow);
@@ -1295,17 +1366,22 @@ function renderModule(main, m) {
       card = phaseCard("Read the source", "Read", state, "Read actively: say each idea to yourself in your own words. The notes vanish when you close the book.");
       if (state === "cur") {
         card.append(h("div", { class: "pdfref" }, h("div", { class: "big" }, m.pages.j), h("div", {}, h("div", { html: "<b>" + m.pages.pdf + "</b>" }), h("div", { class: "small" }, m.pages.sec))));
-        card.append(h("div", { class: "notes" }, h("div", { class: "kicker", style: "margin-bottom:6px" }, "Field notes"), h("ul", {}, ...m.notes.map(n => h("li", { html: n })))));
-        card.append(h("div", { class: "gate" }, h("span", { class: "small" }, "When you're done, close the book. You won't be able to reopen the notes until you've explained the ideas from memory."), h("button", { class: "btn", onclick: advance }, "Close the book →")));
+        card.append(paperViewer(m.pages.from, m.pages.to));
+        card.append(h("div", { class: "notes" }, h("div", { class: "kicker", style: "margin-bottom:6px" }, "Field notes · check them against the paper once you've read it"), h("ul", {}, ...m.notes.map(n => h("li", { html: n })))));
+        card.append(h("div", { class: "gate" }, h("span", { class: "small" }, "When you're done, close the book. You won't be able to reopen the paper or the notes until you've explained the ideas from memory."), h("button", { class: "btn", onclick: advance }, "Close the book →")));
       } else if (state === "ok") {
         const p = S.items[m.id + ":predict"], q = Q[m.predict];
         card.append(h("div", { class: "fb " + (p && p.correct ? "good" : "bad"), html: `<b>${p && p.correct ? "Your prediction was right." : "Your prediction missed."}</b> You chose ${String.fromCharCode(65 + (p ? p.choice : 0))}; the answer is <b>${String.fromCharCode(65 + q.a)}. ${esc(q.o[q.a])}</b> ${esc(q.x)}` }));
         if (p && !p.correct) addCard(q.q, q.o[q.a] + " — " + q.x, m.id + ":predict");
-        if (MS(m.id).explain.done) card.append(h("details", {}, h("summary", {}, "Reopen field notes"), h("ul", {}, ...m.notes.map(n => h("li", { html: n })))));
-        else card.append(h("div", { class: "small" }, "📕 Book closed. The notes unlock after your explanation."));
+        if (MS(m.id).explain.done) {
+          card.append(h("details", {}, h("summary", {}, "Reopen field notes"), h("ul", {}, ...m.notes.map(n => h("li", { html: n })))));
+          const d = h("details", {}, h("summary", {}, "Reopen the paper (" + m.pages.j + ")"));
+          d.addEventListener("toggle", () => { if (d.open && !d.querySelector(".reader")) d.append(paperViewer(m.pages.from, m.pages.to)); });
+          card.append(d);
+        } else card.append(h("div", { class: "small" }, "📕 Book closed. The paper and notes unlock after your explanation."));
       }
     } else if (ph === "explain") {
-      card = phaseCard("Explain it from memory", "Generate", state, "Writing an explanation from memory is one of the most effective ways to learn. Struggling here is the point: don't peek at the PDF.");
+      card = phaseCard("Explain it from memory", "Generate", state, "Writing an explanation from memory is one of the most effective ways to learn. Struggling here is the point: don't peek at the paper.");
       if (state !== "locked") {
         if (st.explain.done) {
           const last = st.explain.attempts[st.explain.attempts.length - 1];

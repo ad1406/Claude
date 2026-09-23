@@ -2,7 +2,7 @@
 
 An interactive, roughly two-hour course on Eric Brewer's *Lessons from Giant-Scale Services* (IEEE Internet Computing, 2001). It's built around active learning: a pre-test, predict-before-reading, closed-book explanations graded by an AI tutor, simulator labs, questions mixed in from earlier sections, a final with free recall and a design memo, and an exportable spaced-review deck.
 
-Open the paper's PDF alongside it. The course points to exact pages.
+The paper (`paper.pdf`) is built in. Each mission's reading step shows the relevant pages, with figures and tables, rendered by a bundled copy of [PDF.js](https://mozilla.github.io/pdf.js/) (`vendor/pdfjs`, Apache-2.0). You can zoom or switch to the whole paper. The paper is hidden while you're explaining from memory and unlocks again afterwards.
 
 ## Run it
 
@@ -42,11 +42,12 @@ The key stays on the server. It is never sent to the browser or written into the
 
 ### Without the server
 
-You can open `giant-scale-lab.html` directly as a file. Everything works except AI grading, which falls back to rubric-based self-grading.
+You can open `giant-scale-lab.html` directly as a file. AI grading then falls back to rubric-based self-grading. The browser can't load `paper.pdf` by itself from a local file, so the reader asks you to pick the PDF once per session.
 
 ## Endpoints
 
 - `GET /`: the course
+- `GET /paper.pdf`, `GET /vendor/pdfjs/*`: the paper and the PDF viewer
 - `GET /api/status`: tells the page whether the server has a key or needs an access code
 - `POST /api/chat`: DeepSeek chat-completions proxy
 - `GET /healthz`: liveness check

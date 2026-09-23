@@ -34,6 +34,12 @@ const MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat";
 const RATE = +process.env.RATE_LIMIT || 120;
 const UPSTREAM = (process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com").replace(/\/+$/, "") + "/chat/completions";
 const PAGE = path.join(__dirname, "giant-scale-lab.html");
+// Static files the page needs: the paper itself and the vendored PDF.js viewer.
+const STATIC = {
+  "/paper.pdf": ["paper.pdf", "application/pdf"],
+  "/vendor/pdfjs/pdf.min.js": ["vendor/pdfjs/pdf.min.js", "text/javascript; charset=utf-8"],
+  "/vendor/pdfjs/pdf.worker.min.js": ["vendor/pdfjs/pdf.worker.min.js", "text/javascript; charset=utf-8"]
+};
 const MAX_BODY = 64 * 1024;
 const MAX_TOKENS = 1500;
 
@@ -44,8 +50,8 @@ function allow(ip) {
   list.push(now); hits.set(ip, list); return true;
 }
 
-function send(res, status, body, type = "application/json; charset=utf-8") {
-  res.writeHead(status, { "Content-Type": type, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+function send(res, status, body, type = "application/json; charset=utf-8", cache = "no-store") {
+  res.writeHead(status, { "Content-Type": type, "Cache-Control": cache, "X-Content-Type-Options": "nosniff" });
   res.end(typeof body === "string" || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
 
@@ -99,6 +105,10 @@ http.createServer(async (req, res) => {
   try {
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html" || url.pathname === "/giant-scale-lab.html"))
       return send(res, 200, fs.readFileSync(PAGE), "text/html; charset=utf-8");
+    if (req.method === "GET" && STATIC[url.pathname]) {
+      const [file, type] = STATIC[url.pathname];
+      return send(res, 200, fs.readFileSync(path.join(__dirname, file)), type, "public, max-age=86400");
+    }
     if (req.method === "GET" && url.pathname === "/api/status")
       return send(res, 200, { proxy: true, serverKey: !!KEY, needsCode: !!(KEY && CODE), model: MODEL });
     if (req.method === "GET" && url.pathname === "/healthz") return send(res, 200, "ok", "text/plain");
