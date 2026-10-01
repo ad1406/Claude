@@ -72,7 +72,7 @@ The self-test proves this. It drives every mode and bench, rebuilds the drivetra
 DivergeE5Workshop.exe --selftest out_dir # Windows
 ```
 
-It has also been run clean (no errors, no leak reports) under AddressSanitizer + UBSan + LeakSanitizer.
+It has also been run clean (no errors, no leak reports) under AddressSanitizer + UBSan + LeakSanitizer (full self-test) and Valgrind memcheck (start-up, drivetrain rebuilds, picking, rendering and shutdown: 0 errors, 0 bytes definitely or indirectly lost).
 
 ## Code layout
 
