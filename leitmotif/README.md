@@ -35,20 +35,24 @@ The **Études** view takes one motif at a time: its canonical picture, the quest
 
 There is also sound. Each motif is one harmonic of the Chapter 1 string (Ground is the fundamental, Shadow the 8th), so every piece has a chord. Press Space on the score to hear the two chapters played column by column.
 
-## Controls
+## Keys
+
+Everything can be done from the keyboard; press **F1** or **?** in the app for the full list.
 
 | | |
 |---|---|
-| Hover / click a column | read it / open it |
-| Hover / click a staff label | the motif / its étude |
-| Space (score) | play the score |
-| 1–7, 0 (score) | highlight one motif (0 = ground) |
-| 0–7 (piece) | Perform: name the next move. Read: jump to the next use of that motif |
-| Enter | reveal the current step |
-| ← → | walk through revealed steps |
-| Tab | Perform / Read |
-| Backspace, Esc | back along the breadcrumb |
-| ? | help |
+| **Alt+← / Alt+→** | back / forward to exactly where you were: same piece, step and scroll. Every move counts: clicks, links, keys. Also Backspace, the mouse's side buttons, and ← → in the top bar |
+| **Ctrl+K** or **/** | go to any result, exercise or motif by typing (`2.38`, `beats`, `P1.4`, `mirror`) |
+| **S**, **E**, **Esc** | Score, Études, up to the Score |
+| Score: **← →**, **Home/End** | move along the columns (Shift: by section) |
+| Score: **↑ ↓** or **0–7** | choose a motif; then **← →** follow it from column to column |
+| Score: **Enter**, **Space** | derive the chosen column, play the score |
+| Piece: **0–7** | Perform: name the next move (0 = Ground). Read: jump to its next use |
+| Piece: **Enter** | Perform: reveal the step. Read: follow the step's reference |
+| Piece: **↑ ↓**, **U**, **[ ]** | walk the steps, follow the step's reference, previous/next piece |
+| Piece: **Tab**, **L**, **R**, **PgUp/PgDn** | Perform/Read, lineage, reset progress, scroll |
+| Études: **↑ ↓**, **← →**, **Enter** | motif, its occurrences, open one |
+| **M** | sound on/off |
 
 If anything goes wrong on Windows, a log is written to `%TEMP%\leitmotif-log.txt`, and a crash shows a dialog naming that file.
 

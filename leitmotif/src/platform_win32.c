@@ -44,13 +44,14 @@ static int map_vk(WPARAM vk) {
     case VK_HOME: return KEY_HOME;    case VK_END: return KEY_END;
     case VK_TAB: return KEY_TAB;      case VK_SPACE: return KEY_SPACE;
     case VK_PRIOR: return KEY_PGUP;   case VK_NEXT: return KEY_PGDN;
+    case VK_F1: return KEY_F1;
     }
     return -1;
 }
 
 static void mouse_btn(int b, int isdown) {
     if (isdown) { g_st.down[b] = 1; g_st.pressed[b] = 1; SetCapture(g_hwnd); }
-    else { g_st.down[b] = 0; g_st.released[b] = 1; if (!g_st.down[0] && !g_st.down[1] && !g_st.down[2]) ReleaseCapture(); }
+    else { g_st.down[b] = 0; g_st.released[b] = 1; if (!g_st.down[0] && !g_st.down[1] && !g_st.down[2] && !g_st.down[3] && !g_st.down[4]) ReleaseCapture(); }
 }
 
 static LRESULT CALLBACK wndproc(HWND h, UINT m, WPARAM w, LPARAM l) {
@@ -74,15 +75,19 @@ static LRESULT CALLBACK wndproc(HWND h, UINT m, WPARAM w, LPARAM l) {
     case WM_RBUTTONUP: mouse_btn(MOUSE_R, 0); return 0;
     case WM_MBUTTONDOWN: case WM_MBUTTONDBLCLK: mouse_btn(MOUSE_M, 1); return 0;
     case WM_MBUTTONUP: mouse_btn(MOUSE_M, 0); return 0;
+    case WM_XBUTTONDOWN: case WM_XBUTTONDBLCLK: mouse_btn(HIWORD(w) == XBUTTON1 ? MOUSE_BACK : MOUSE_FWD, 1); return TRUE;
+    case WM_XBUTTONUP: mouse_btn(HIWORD(w) == XBUTTON1 ? MOUSE_BACK : MOUSE_FWD, 0); return TRUE;
+    case WM_SYSCHAR: return 0;   /* no beep for Alt+key */
+    case WM_SYSCOMMAND: if ((w & 0xFFF0) == SC_KEYMENU) return 0; break;   /* Alt alone must not enter menu mode */
     case WM_MOUSEWHEEL: g_st.wheel += (float)GET_WHEEL_DELTA_WPARAM(w) / WHEEL_DELTA; return 0;
     case WM_KEYDOWN: case WM_SYSKEYDOWN: {
         int k = map_vk(w);
-        if (k >= 0) { if (!g_st.key_down[k] || (l & (1 << 30))) g_st.key_pressed[k] = 1; g_st.key_down[k] = 1; }
+        if (k >= 0) { if (!g_st.key_down[k] || (l & (1 << 30))) g_st.key_pressed[k] = 1; g_st.key_down[k] = 1; if (m == WM_SYSKEYDOWN) return 0; }
         break; }
     case WM_KEYUP: case WM_SYSKEYUP: {
         int k = map_vk(w); if (k >= 0) g_st.key_down[k] = 0; break; }
     case WM_CHAR:
-        if (w >= 32 && w != 127 && (w < 0xD800 || w > 0xDFFF) && g_st.ntext < 32) g_st.text[g_st.ntext++] = (unsigned)w;
+        if (((w >= 32 && w != 127) || w == 11) && (w < 0xD800 || w > 0xDFFF) && g_st.ntext < 32) g_st.text[g_st.ntext++] = (unsigned)w;   /* 11 = Ctrl+K */
         return 0;
     case WM_SETFOCUS: g_st.focused = 1; return 0;
     case WM_KILLFOCUS:
@@ -209,6 +214,7 @@ void plat_poll(Input *in) {
     }
     g_st.ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
     g_st.shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
+    g_st.alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
     g_st.mdx = g_st.mx - g_lastx; g_st.mdy = g_st.my - g_lasty;
     g_lastx = g_st.mx; g_lasty = g_st.my;
     *in = g_st;

@@ -5,20 +5,20 @@
 
 enum {
     KEY_ESC, KEY_ENTER, KEY_BACKSPACE, KEY_DELETE, KEY_LEFT, KEY_RIGHT,
-    KEY_UP, KEY_DOWN, KEY_HOME, KEY_END, KEY_TAB, KEY_SPACE, KEY_PGUP, KEY_PGDN, KEY_COUNT
+    KEY_UP, KEY_DOWN, KEY_HOME, KEY_END, KEY_TAB, KEY_SPACE, KEY_PGUP, KEY_PGDN, KEY_F1, KEY_COUNT
 };
 enum { CURSOR_ARROW, CURSOR_HAND, CURSOR_MOVE, CURSOR_COUNT };
-enum { MOUSE_L, MOUSE_R, MOUSE_M };
+enum { MOUSE_L, MOUSE_R, MOUSE_M, MOUSE_BACK, MOUSE_FWD };
 
 typedef struct {
     int   win_w, win_h;         /* client area in pixels */
     float dpi;                  /* 1.0 = 96 dpi */
     int   mx, my, mdx, mdy;     /* mouse, pixels, top-left origin */
-    int   down[3], pressed[3], released[3];
+    int   down[5], pressed[5], released[5];   /* incl. the side (back/forward) buttons */
     float wheel;                /* notches, + = away from user */
     int   key_down[KEY_COUNT], key_pressed[KEY_COUNT];
     unsigned text[32]; int ntext;  /* typed characters (Unicode) */
-    int   ctrl, shift;
+    int   ctrl, shift, alt;
     int   resized, quit, focused;
 } Input;
 

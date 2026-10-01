@@ -37,7 +37,7 @@ static int map_key(KeySym k) {
     case XK_BackSpace: return KEY_BACKSPACE; case XK_Delete: return KEY_DELETE;
     case XK_Left: return KEY_LEFT; case XK_Right: return KEY_RIGHT; case XK_Up: return KEY_UP; case XK_Down: return KEY_DOWN;
     case XK_Home: return KEY_HOME; case XK_End: return KEY_END; case XK_Tab: return KEY_TAB; case XK_space: return KEY_SPACE;
-    case XK_Prior: return KEY_PGUP; case XK_Next: return KEY_PGDN;
+    case XK_Prior: return KEY_PGUP; case XK_Next: return KEY_PGDN; case XK_F1: return KEY_F1;
     }
     return -1;
 }
@@ -108,7 +108,7 @@ void plat_shutdown(void) {
 
 static void add_text(XKeyEvent *e) {
     char buf[16]; KeySym ks = 0; int nb = XLookupString(e, buf, sizeof buf, &ks, NULL), i;
-    for (i = 0; i < nb; i++) { unsigned char c = (unsigned char)buf[i]; if (c >= 32 && c != 127 && g_st.ntext < 32) g_st.text[g_st.ntext++] = c; }
+    for (i = 0; i < nb; i++) { unsigned char c = (unsigned char)buf[i]; if (((c >= 32 && c != 127) || c == 11) && g_st.ntext < 32) g_st.text[g_st.ntext++] = c; }
 }
 
 void plat_poll(Input *in) {
@@ -127,14 +127,14 @@ void plat_poll(Input *in) {
             int b = e.xbutton.button;
             g_st.mx = e.xbutton.x; g_st.my = e.xbutton.y;
             if (b == 4) g_st.wheel += 1; else if (b == 5) g_st.wheel -= 1;
-            else if (b >= 1 && b <= 3) {
-                int idx = b == 1 ? MOUSE_L : b == 3 ? MOUSE_R : MOUSE_M;
+            else if ((b >= 1 && b <= 3) || b == 8 || b == 9) {
+                int idx = b == 1 ? MOUSE_L : b == 3 ? MOUSE_R : b == 2 ? MOUSE_M : b == 8 ? MOUSE_BACK : MOUSE_FWD;
                 g_st.down[idx] = 1; g_st.pressed[idx] = 1;
             }
             break; }
         case ButtonRelease: {
             int b = e.xbutton.button;
-            if (b >= 1 && b <= 3) { int idx = b == 1 ? MOUSE_L : b == 3 ? MOUSE_R : MOUSE_M; g_st.down[idx] = 0; g_st.released[idx] = 1; }
+            if ((b >= 1 && b <= 3) || b == 8 || b == 9) { int idx = b == 1 ? MOUSE_L : b == 3 ? MOUSE_R : b == 2 ? MOUSE_M : b == 8 ? MOUSE_BACK : MOUSE_FWD; g_st.down[idx] = 0; g_st.released[idx] = 1; }
             break; }
         case KeyPress: {
             KeySym ks = XLookupKeysym(&e.xkey, 0); int k = map_key(ks);
@@ -165,7 +165,7 @@ void plat_poll(Input *in) {
     }
     {   Window rr, cr; int rx, ry, wx, wy; unsigned mask;
         if (XQueryPointer(g_dpy, g_win, &rr, &cr, &rx, &ry, &wx, &wy, &mask)) {
-            g_st.ctrl = (mask & ControlMask) != 0; g_st.shift = (mask & ShiftMask) != 0; }
+            g_st.ctrl = (mask & ControlMask) != 0; g_st.shift = (mask & ShiftMask) != 0; g_st.alt = (mask & Mod1Mask) != 0; }
     }
     g_st.mdx = g_st.mx - g_lastx; g_st.mdy = g_st.my - g_lasty;
     g_lastx = g_st.mx; g_lasty = g_st.my;

@@ -47,6 +47,10 @@ static struct {
     int etude;
     float escroll, escroll_target, econtent_h;
     Stage st;
+    /* keyboard */
+    int kbd, kcol, ecur, scroll_to_step;
+    int palette, pal_sel; char pal_q[64];
+    int help_was_open, nav_jumped;
     /* mouse */
     int clicked, consumed, want_hand;
     /* self-test */
@@ -116,10 +120,6 @@ static void open_piece(int p, int push) {
     stage_for_piece();
     play_chord(p);
 }
-static void go_back(void) {
-    if (A.view == V_PIECE && A.depth > 1) { A.depth--; A.view = V_PIECE; A.sel_step = A.perform ? g_revealed[CUR] - 1 : 0; A.scroll = A.scroll_target = 0; stage_for_piece(); }
-    else { A.view = V_SCORE; A.depth = 0; synth_release_all(); }
-}
 
 static void stage_for_piece(void) {
     int p = CUR, s;
@@ -130,6 +130,149 @@ static void stage_for_piece(void) {
     if (A.perform && s >= g_revealed[p]) s = g_revealed[p] - 1;
     for (; s >= 0; s--) if (pc->steps[s].scene >= 0) { stage_set(&A.st, pc->steps[s].scene, pc->steps[s].p); return; }
     stage_set(&A.st, pc->scene, pc->p);
+}
+
+/* ------------------------------------------------------------- history
+   Every change of place (view, piece, breadcrumb, etude) is recorded, so
+   Back returns exactly where you were: same step, same scroll. */
+typedef struct { int view, depth, stack[24], sel_step, etude, kcol, ecur; float scroll, escroll; } Loc;
+#define NHIST 96
+static Loc g_back[NHIST], g_fwd[NHIST];
+static int g_nb, g_nf;
+
+static Loc loc_now(void) {
+    Loc l; memset(&l, 0, sizeof l);
+    l.view = A.view; l.depth = A.depth; memcpy(l.stack, A.stack, sizeof l.stack);
+    l.sel_step = A.sel_step; l.etude = A.etude; l.kcol = A.kcol; l.ecur = A.ecur; l.scroll = A.scroll_target; l.escroll = A.escroll_target;
+    return l;
+}
+static int same_place(const Loc *a, const Loc *b) {
+    if (a->view != b->view) return 0;
+    if (a->view == V_PIECE) return a->depth == b->depth && !memcmp(a->stack, b->stack, sizeof(int) * (size_t)a->depth);
+    if (a->view == V_ETUDE) return a->etude == b->etude;
+    return 1;
+}
+static void loc_restore(const Loc *l) {
+    A.view = l->view; A.depth = l->depth; memcpy(A.stack, l->stack, sizeof A.stack);
+    A.etude = l->etude; A.kcol = l->kcol;
+    synth_release_all();
+    if (A.view == V_PIECE && CUR >= 0) {
+        int p = CUR;
+        A.sel_step = l->sel_step;
+        if (A.perform && A.sel_step > g_revealed[p] - 1) A.sel_step = g_revealed[p] - 1;
+        if (!PIECES[p].nsteps) A.sel_step = -1;
+        A.scroll = A.scroll_target = l->scroll; A.hint_shown = 0; A.wrong_key = -1;
+        stage_for_piece();
+    } else if (A.view == V_PIECE) A.view = V_SCORE;
+    if (A.view == V_ETUDE) { A.escroll = A.escroll_target = l->escroll; A.ecur = l->ecur; stage_set(&A.st, MOTIFS[A.etude].scene, MOTIFS[A.etude].p); }
+}
+static void push_hist(Loc *st, int *n, const Loc *l) {
+    if (*n == NHIST) { memmove(st, st + 1, sizeof(Loc) * (NHIST - 1)); (*n)--; }
+    st[(*n)++] = *l;
+}
+static void nav_back(void) {
+    Loc here;
+    if (!g_nb) return;
+    here = loc_now(); push_hist(g_fwd, &g_nf, &here);
+    loc_restore(&g_back[--g_nb]); A.nav_jumped = 1;
+}
+static void nav_forward(void) {
+    Loc here;
+    if (!g_nf) return;
+    here = loc_now(); push_hist(g_back, &g_nb, &here);
+    loc_restore(&g_fwd[--g_nf]); A.nav_jumped = 1;
+}
+static void open_etude(int m) {
+    A.etude = m; A.view = V_ETUDE; A.ecur = 0; A.escroll = A.escroll_target = 0;
+    synth_release_all(); stage_set(&A.st, MOTIFS[m].scene, MOTIFS[m].p);
+}
+static void go_score(void) { A.view = V_SCORE; synth_release_all(); if (CUR >= 0) { A.kcol = CUR; } }
+
+/* ---------------------------------------------------------- go-to palette */
+typedef struct { int kind, idx; char text[160]; } PalItem;   /* kind 0 piece, 1 etude, 2 view */
+static PalItem g_pal[128];
+static int pal_lower(int c) { return c >= 'A' && c <= 'Z' ? c + 32 : c; }
+static int pal_find(const char *hay, const char *q) {   /* -1 none, 0 prefix, 1 inside */
+    int i, j, n = (int)strlen(q);
+    if (!n) return 1;
+    for (i = 0; hay[i]; i++) {
+        for (j = 0; j < n && hay[i + j] && pal_lower((unsigned char)hay[i + j]) == pal_lower((unsigned char)q[j]); j++) ;
+        if (j == n) return i == 0 ? 0 : 1;
+    }
+    return -1;
+}
+static int pal_build(PalItem *out, int cap) {
+    int n = 0, pass, i;
+    const char *q = A.pal_q;
+    for (pass = 0; pass < 2; pass++) {
+        if (pass == 0) {   /* views and etudes */
+            static const char *views[2] = { "Score", "Etudes" };
+            for (i = 0; i < 2 && n < cap; i++) if (pal_find(views[i], q) >= 0) { out[n].kind = 2; out[n].idx = i; snprintf(out[n].text, 160, "%s  (view)", views[i]); n++; }
+            for (i = 0; i < MO_COUNT && n < cap; i++) if (pal_find(MOTIFS[i].name, q) >= 0) { out[n].kind = 1; out[n].idx = i; snprintf(out[n].text, 160, "%s  (etude)", MOTIFS[i].name); n++; }
+        }
+        for (i = 0; i < NPIECES && n < cap; i++) {
+            const Piece *pc = &PIECES[i];
+            int m = pal_find(pc->id, q), m2 = pal_find(pc->label, q), m3 = pal_find(pc->name, q), m4 = pal_find(short_label(i), q), best = 9;
+            if (m >= 0 && m < best) best = m; if (m2 >= 0 && m2 < best) best = m2; if (m3 >= 0 && m3 < best) best = m3; if (m4 >= 0 && m4 < best) best = m4;
+            if (best == 9 || best != pass) continue;
+            out[n].kind = 0; out[n].idx = i; snprintf(out[n].text, 160, "%s   %s", pc->label, pc->name); n++;
+        }
+    }
+    return n;
+}
+static void pal_open_item(const PalItem *it) {
+    A.palette = 0;
+    if (it->kind == 0) open_piece(it->idx, 0);
+    else if (it->kind == 1) open_etude(it->idx);
+    else if (it->idx == 0) go_score(); else open_etude(A.etude);
+}
+static void palette_overlay(Rect r) {
+    Rect b = rect(r.x + r.w / 2 - S(320), r.y + S(40), S(640), S(470));
+    int n = pal_build(g_pal, 128), i, k, first, show = 12;
+    float y;
+    /* typing */
+    for (k = 0; k < A.in.ntext; k++) {
+        unsigned c = A.in.text[k]; size_t L = strlen(A.pal_q);
+        if (c >= 32 && c < 127 && c != '/' && L < sizeof A.pal_q - 1) { A.pal_q[L] = (char)c; A.pal_q[L + 1] = 0; A.pal_sel = 0; }
+    }
+    if (A.in.key_pressed[KEY_BACKSPACE]) { size_t L = strlen(A.pal_q); if (L) A.pal_q[L - 1] = 0; A.pal_sel = 0; }
+    n = pal_build(g_pal, 128);
+    if (A.in.key_pressed[KEY_DOWN]) A.pal_sel++;
+    if (A.in.key_pressed[KEY_UP]) A.pal_sel--;
+    if (A.in.key_pressed[KEY_PGDN]) A.pal_sel += show;
+    if (A.in.key_pressed[KEY_PGUP]) A.pal_sel -= show;
+    if (A.pal_sel >= n) A.pal_sel = n - 1; if (A.pal_sel < 0) A.pal_sel = 0;
+    d_rect(r, calpha(C_PAPER, 0.7f));
+    d_rrect(b, S(12), C_CARD); d_rrect_line(b, S(12), 1, C_HAIR);
+    y = b.y + S(18);
+    {   Rect tb = rect(b.x + S(18), y, b.w - S(36), S(40)); float tx;
+        d_rrect(tb, S(8), C_PAPER); d_rrect_line(tb, S(8), S(1.5f), C_INK2);
+        tx = font_draw(F_TX, tb.x + S(12), tb.y + (tb.h - font_line(F_TX)) / 2, A.pal_q[0] ? A.pal_q : "", -1, C_INK);
+        if (!A.pal_q[0]) font_draw(F_TXI, tb.x + S(12), tb.y + (tb.h - font_line(F_TXI)) / 2, "Go to a result, exercise or motif: type 2.38, beats, P1.4, mirror ...", -1, C_FAINT);
+        else if (fmodf((float)A.t, 1.0f) < 0.6f) d_rect(rect(tx + S(2), tb.y + S(9), S(1.5f), tb.h - S(18)), C_INK);
+        y += S(54); }
+    first = A.pal_sel >= show ? A.pal_sel - show + 1 : 0;
+    for (i = first; i < n && i < first + show; i++) {
+        Rect row = rect(b.x + S(10), y, b.w - S(20), S(30));
+        int on = i == A.pal_sel;
+        if (hover(row) && (A.in.mdx || A.in.mdy)) A.pal_sel = i;
+        if (on) d_rrect(row, S(6), calpha(C_INK, 0.08f));
+        if (g_pal[i].kind == 0) {
+            int m, gx = 0;
+            for (m = 1; m < MO_COUNT; m++) if (PIECE_MOTIFS[g_pal[i].idx][m]) { motif_glyph(m, row.x + row.w - S(16) - gx, row.y + row.h / 2, S(14), S(1.3f), MOTIF_COL[m]); gx += S(20); }
+            d_text(F_UI, row.x + S(10), row.y + (row.h - font_line(F_UI)) / 2, g_pal[i].text, on ? C_INK : C_INK2);
+        } else {
+            if (g_pal[i].kind == 1) motif_glyph(g_pal[i].idx, row.x + S(20), row.y + row.h / 2, S(16), S(1.4f), MOTIF_COL[g_pal[i].idx]);
+            d_text(F_UIB, row.x + S(40), row.y + (row.h - font_line(F_UIB)) / 2, g_pal[i].text, on ? C_INK : C_INK2);
+        }
+        if (A.clicked && hover(row)) { A.clicked = 0; pal_open_item(&g_pal[i]); return; }
+        y += S(32);
+    }
+    if (!n) d_text(F_TXI, b.x + S(24), y + S(6), "Nothing matches.", C_MUTED);
+    d_text(F_XS, b.x + S(20), b.y + b.h - S(24), "↑ ↓ choose     Enter open     Esc close", C_MUTED);
+    if (A.in.key_pressed[KEY_ENTER] && n > 0) { pal_open_item(&g_pal[A.pal_sel]); return; }
+    if (A.in.key_pressed[KEY_ESC]) A.palette = 0;
+    if (A.clicked && !hover(b)) { A.palette = 0; A.clicked = 0; }
 }
 
 /* ============================================================== top bar */
@@ -148,7 +291,7 @@ static void top_bar(Rect r) {
             if (on) d_rrect(b, S(6), C_INK);
             else if (hover(b)) d_rrect(b, S(6), C_WASH);
             d_text_center(F_UIB, b.x + b.w / 2, b.y + (b.h - font_line(F_UIB)) / 2, tabs[i], on ? C_PAPER : C_INK2);
-            if (click(b)) { if (i == 0) { A.view = V_SCORE; synth_release_all(); } else if (i == 1) { A.view = V_ETUDE; stage_set(&A.st, MOTIFS[A.etude].scene, MOTIFS[A.etude].p); synth_release_all(); } else { A.view = V_PIECE; stage_for_piece(); } }
+            if (click(b)) { if (i == 0) go_score(); else if (i == 1) open_etude(A.etude); else { A.view = V_PIECE; stage_for_piece(); } }
             x += w + S(6);
         }
     }
@@ -162,12 +305,21 @@ static void top_bar(Rect r) {
             d_text(F_S, x, r.y + (r.h - font_line(F_S)) / 2, s, i == A.depth - 1 ? C_INK : C_MUTED);
             if (i < A.depth - 1 && click(b)) { A.depth = i + 1; A.sel_step = A.perform ? g_revealed[CUR] - 1 : 0; A.scroll = A.scroll_target = 0; stage_for_piece(); }
             x += w + S(20);
-            if (x > r.x + r.w - S(420)) break;
+            if (x > r.x + r.w - S(640)) break;
         }
     }
     {   float rx = r.x + r.w - S(24);
         Rect b = rect(rx - S(34), r.y + S(12), S(34), r.h - S(24));
         if (button(b, "?", A.help)) A.help = !A.help;
+        rx -= S(42);
+        b = rect(rx - S(118), r.y + S(12), S(118), r.h - S(24));
+        if (button(b, "Go to\u2026  Ctrl+K", 0)) { A.palette = 1; A.pal_q[0] = 0; A.pal_sel = 0; }
+        rx -= S(126);
+        b = rect(rx - S(34), r.y + S(12), S(34), r.h - S(24));
+        if (g_nf) { if (button(b, "\u2192", 0)) nav_forward(); } else { d_rrect_line(b, S(6), 1, calpha(C_HAIR, 0.6f)); d_text_center(F_UI, b.x + b.w / 2, b.y + (b.h - font_line(F_UI)) / 2, "\u2192", C_FAINT); }
+        rx -= S(40);
+        b = rect(rx - S(34), r.y + S(12), S(34), r.h - S(24));
+        if (g_nb) { if (button(b, "\u2190", 0)) nav_back(); } else { d_rrect_line(b, S(6), 1, calpha(C_HAIR, 0.6f)); d_text_center(F_UI, b.x + b.w / 2, b.y + (b.h - font_line(F_UI)) / 2, "\u2190", C_FAINT); }
         rx -= S(42);
         b = rect(rx - S(76), r.y + S(12), S(76), r.h - S(24));
         if (button(b, synth_muted() ? "sound off" : "sound on", 0)) synth_mute(!synth_muted());
@@ -236,7 +388,7 @@ static void score_view(Rect r) {
     {   float hx = r.x + S(28), hy = r.y + S(22);
         font_draw(F_H2I, hx, hy, "Two mirrors make a loop; a sum of turns is a product.", -1, C_INK);
         font_wrap(F_TXS, hx, hy + S(42), r.w * 0.62f,
-                  "Each column is a result or exercise, in book order. Each staff is a motif: a move that recurs. A note means the derivation makes that move, and larger notes mean more often. Hover to read, click to derive. Space plays the score.", C_MUTED, 1);
+                  "Each column is a result or exercise, in book order. Each staff is a motif: a move that recurs. A note means the derivation makes that move, and larger notes mean more often. Hover or use \u2190 \u2192 to read, click or Enter to derive. With a motif chosen (\u2191 \u2193), \u2190 \u2192 follow it from column to column. Space plays the score.", C_MUTED, 1);
         {   /* legend */
             float lx = r.x + r.w * 0.70f, ly = hy + S(6);
             notehead(lx, ly + S(8), S(5), K_RESULT, C_INK, 0); d_text(F_S, lx + S(12), ly, "result", C_INK2);
@@ -261,6 +413,7 @@ static void score_view(Rect r) {
                 A.focus += (frac - A.focus) * 0.25f; }
         }
         if (A.playing) { A.focus += (A.play_x - A.focus) * 0.2f; target_amt = 1; }
+        else if (A.kbd && A.kcol >= 0) { A.focus += ((float)A.kcol - A.focus) * 0.25f; target_amt = 1; }
         A.focus_amt += (target_amt - A.focus_amt) * 0.12f;
         layout_columns(sa);
     }
@@ -291,12 +444,13 @@ static void score_view(Rect r) {
 
     /* hover detection */
     A.hov_col = -1; A.hov_staff = -1;
-    if (in_rect(rect(sa.x, sa.y - S(50), sa.w, sa.h + S(60)), (float)A.in.mx, (float)A.in.my)) {
+    if (A.kbd && A.kcol >= 0) A.hov_col = A.kcol;
+    else if (in_rect(rect(sa.x, sa.y - S(50), sa.w, sa.h + S(60)), (float)A.in.mx, (float)A.in.my)) {
         for (i = 0; i < NPIECES; i++) if (fabsf(A.in.mx - g_cols[i].x) <= g_cols[i].w / 2 + 0.5f) { A.hov_col = i; break; }
     }
     for (s = 0; s < MO_COUNT; s++) {
         Rect lr = rect(r.x, g_staff_y[s] - staff_gap / 2, gut, staff_gap);
-        if (hover(lr)) { A.hov_staff = s; A.want_hand = 1; if (click(lr)) { A.etude = motif_of_staff(s); A.view = V_ETUDE; stage_set(&A.st, MOTIFS[A.etude].scene, MOTIFS[A.etude].p); } }
+        if (hover(lr) && !A.kbd) { A.hov_staff = s; A.want_hand = 1; if (click(lr)) open_etude(motif_of_staff(s)); }
     }
     {   int hl_m = A.hov_staff >= 0 ? motif_of_staff(A.hov_staff) : A.sel_filter;
 
@@ -365,7 +519,8 @@ static void score_view(Rect r) {
                 else if (pc->nsteps && g_revealed[i] > 0) d_ring(x, g_staff_y[MO_COUNT - 1] + S(36), S(3), 1, MOTIF_COL[MO_LOOP]);
             }
         }
-        if (A.hov_col >= 0) { A.want_hand = 1; if (click(rect(sa.x, sa.y - S(50), sa.w, sa.h + S(60)))) open_piece(A.hov_col, 0); }
+        if (A.hov_col >= 0 && !A.kbd) { A.want_hand = 1; if (click(rect(sa.x, sa.y - S(50), sa.w, sa.h + S(60)))) { A.kcol = A.hov_col; open_piece(A.hov_col, 0); } }
+        if (A.kbd && A.kcol >= 0) d_rrect_line(rect(g_cols[A.kcol].x - g_cols[A.kcol].w / 2 + 1, sa.y - S(50), g_cols[A.kcol].w - 2, sa.h + S(92)), S(4), S(1.5f), calpha(C_INK, 0.55f));
     }
 
     /* programme notes */
@@ -396,7 +551,7 @@ static void score_view(Rect r) {
                         xx += chip(xx, cy, short_label(q), C_INK, 0, NULL) + S(6); }
                     if (any) cy += S(30);
                 }
-                d_text(F_TXSI, cx, nb.y + nb.h - S(30), pc->nsteps ? "click to derive it →" : "click to see it →", MOTIF_COL[MO_TURN]);
+                d_text(F_TXSI, cx, nb.y + nb.h - S(30), pc->nsteps ? "click or Enter to derive it \u2192" : "click or Enter to see it \u2192", MOTIF_COL[MO_TURN]);
             }
         } else if (A.hov_staff >= 0) {
             int mm = motif_of_staff(A.hov_staff); float x = nb.x + S(24), y = nb.y + S(18), cnt = 0;
@@ -602,12 +757,19 @@ static void piece_view(Rect r) {
     } else {
         for (i = 0; i < pc->nsteps; i++) {
             float h = draw_step(pc, p, i, x, y, w, 0, &refc);
+            if (A.scroll_to_step && i == A.sel_step) {   /* keep the chosen step in view */
+                float top = y + A.scroll - right.y, bot = top + h;
+                if (top < A.scroll_target + S(20)) A.scroll_target = top - S(20);
+                if (bot > A.scroll_target + right.h - S(20)) A.scroll_target = bot - right.h + S(20);
+                A.scroll_to_step = 0;
+            }
             Rect sr = rect(x - S(8), y, w + S(16), h - S(4));
             int revealed = !A.perform || i < g_revealed[p];
             if (revealed && i == A.sel_step) { d_rrect(sr, S(8), calpha(MOTIF_COL[pc->steps[i].motif], 0.07f)); d_rect(rect(sr.x, sr.y + S(6), S(3), sr.h - S(12)), MOTIF_COL[pc->steps[i].motif]); }
             draw_step(pc, p, i, x, y, w, 1, &refc);
             if (refc) { open_piece(refc - 1, 1); clip_pop(); return; }
             if (revealed && click(sr)) { A.sel_step = i; stage_for_piece(); }
+            if (revealed && i == A.sel_step && A.kbd) d_rect(rect(sr.x - S(6), sr.y + S(4), S(2), sr.h - S(8)), C_INK);
             y += h;
             if (A.perform && i == g_revealed[p]) break;
         }
@@ -712,15 +874,27 @@ static void piece_view(Rect r) {
             play_motif(correct, 0.12f); stage_for_piece();
         }
     }
-    if (!A.perform && pc->nsteps) {
-        if (A.in.key_pressed[KEY_DOWN] || A.in.key_pressed[KEY_RIGHT] || A.in.key_pressed[KEY_SPACE]) { if (A.sel_step < pc->nsteps - 1) { A.sel_step++; stage_for_piece(); } }
-        if (A.in.key_pressed[KEY_UP] || A.in.key_pressed[KEY_LEFT]) { if (A.sel_step > 0) { A.sel_step--; stage_for_piece(); } }
+    /* keys: walk the steps, follow references, move between pieces */
+    if (pc->nsteps) {
+        int lim = A.perform ? g_revealed[p] - 1 : pc->nsteps - 1, old = A.sel_step;
+        if (A.in.key_pressed[KEY_DOWN] || A.in.key_pressed[KEY_RIGHT] || (!A.perform && A.in.key_pressed[KEY_SPACE])) { if (A.sel_step < lim) A.sel_step++; }
+        if (A.in.key_pressed[KEY_UP] || A.in.key_pressed[KEY_LEFT]) { if (A.sel_step > 0) A.sel_step--; }
+        if (A.in.key_pressed[KEY_HOME] && lim >= 0) A.sel_step = 0;
+        if (A.in.key_pressed[KEY_END] && lim >= 0) A.sel_step = lim;
+        if (A.sel_step != old) { A.kbd = 1; A.scroll_to_step = 1; stage_for_piece(); }
     }
-    if (A.perform && pc->nsteps && (A.in.key_pressed[KEY_LEFT] || A.in.key_pressed[KEY_RIGHT])) {
-        int lim = g_revealed[p] - 1;
-        if (A.in.key_pressed[KEY_LEFT] && A.sel_step > 0) A.sel_step--;
-        if (A.in.key_pressed[KEY_RIGHT] && A.sel_step < lim) A.sel_step++;
-        stage_for_piece();
+    if (A.in.key_pressed[KEY_PGDN]) A.scroll_target += right.h * 0.8f;
+    if (A.in.key_pressed[KEY_PGUP]) A.scroll_target -= right.h * 0.8f;
+    {   int k2;
+        for (k2 = 0; k2 < A.in.ntext; k2++) {
+            unsigned c = A.in.text[k2];
+            if (c == ']' && p + 1 < NPIECES) { open_piece(p + 1, 0); return; }
+            if (c == '[' && p > 0) { open_piece(p - 1, 0); return; }
+            if ((c == 'u' || c == 'U') && A.sel_step >= 0) { int q = step_ref(p, A.sel_step); if (q >= 0 && (!A.perform || A.sel_step < g_revealed[p])) { open_piece(q, 1); return; } }
+            if (c == 'l' || c == 'L') A.lineage_open = !A.lineage_open;
+            if ((c == 'r' || c == 'R') && A.perform && pc->nsteps) { g_revealed[p] = 0; A.sel_step = -1; A.hint_shown = 0; A.wrong_key = -1; A.scroll_target = 0; stage_for_piece(); }
+        }
+        if (!A.perform && A.in.key_pressed[KEY_ENTER] && A.sel_step >= 0) { int q = step_ref(p, A.sel_step); if (q >= 0) { open_piece(q, 1); return; } }
     }
 }
 
@@ -739,7 +913,7 @@ static void etude_view(Rect r) {
         d_text(F_UIB, b.x + S(54), b.y + S(10), mm == MO_GROUND ? "Ground" : MOTIFS[mm].name, cmix(MOTIF_COL[mm], C_INK, 0.3f));
         {   int cnt = 0; char t[32]; for (i = 0; i < NPIECES; i++) for (k = 0; k < PIECES[i].nsteps; k++) if (PIECES[i].steps[k].motif == mm) cnt++;
             snprintf(t, sizeof t, "%d moves", cnt); d_text(F_XS, b.x + S(54), b.y + S(32), t, C_MUTED); }
-        if (click(b)) { A.etude = mm; A.escroll = A.escroll_target = 0; stage_set(&A.st, MOTIFS[mm].scene, MOTIFS[mm].p); play_motif(mm, 0.14f); }
+        if (click(b)) { open_etude(mm); play_motif(mm, 0.14f); }
         y += S(64);
     }
     d_rrect(stage_r, S(10), C_CARD); d_rrect_line(stage_r, S(10), 1, C_HAIR);
@@ -757,7 +931,12 @@ static void etude_view(Rect r) {
         d_rrect(rect(x - S(4), y, w + S(4), S(10) + rich(mi->question, x + S(12), y + S(8), w - S(20), rs(F_TXI, F_TXI, S(17)), C_INK, 0) + S(10)), S(8), calpha(MOTIF_COL[A.etude], 0.08f));
         y += rich(mi->question, x + S(12), y + S(8), w - S(20), rs(F_TXI, F_TXI, S(17)), C_INK, 1) + S(34);
         d_text_spaced(F_CAP, x, y, "EVERY TIME IT SOUNDS", S(1.3f), C_MUTED); y += S(22);
-        {   int ch;
+        {   int ch, occ = 0, nocc = 0;
+            for (i = 0; i < NPIECES; i++) for (k = 0; k < PIECES[i].nsteps; k++) if (PIECES[i].steps[k].motif == A.etude) nocc++;
+            if (A.etude == MO_GROUND) for (i = 0; i < NPIECES; i++) if (PIECES[i].kind == K_GROUND || PIECES[i].kind == K_DEF) nocc++;
+            if (A.in.key_pressed[KEY_RIGHT]) { A.ecur++; A.kbd = 1; }
+            if (A.in.key_pressed[KEY_LEFT]) { A.ecur--; A.kbd = 1; }
+            if (A.ecur >= nocc) A.ecur = nocc - 1; if (A.ecur < 0) A.ecur = 0;
             for (ch = 1; ch <= 2; ch++) {
                 float xx = x; int any = 0;
                 for (i = 0; i < NPIECES; i++) {
@@ -769,7 +948,13 @@ static void etude_view(Rect r) {
                         cw = font_width(F_S, lb, -1) + S(16);
                         if (xx + cw > x + w) { xx = x; y += S(28); }
                         chip(xx, y, lb, MOTIF_COL[A.etude], PIECES[i].kind == K_PROBLEM ? 0 : 1, &h2);
-                        if (h2) { clip_pop(); A.perform = 0; open_piece(i, 0); A.sel_step = k; stage_for_piece(); return; }
+                        if (A.kbd && occ == A.ecur) {
+                            d_rrect_line(rect(xx - S(3), y - S(3), cw + S(6), S(28)), S(13), S(1.8f), C_INK);
+                            if (y < right.y + S(20) - 0) A.escroll_target -= S(60); else if (y > right.y + right.h - S(40)) A.escroll_target += S(60);
+                            if (A.in.key_pressed[KEY_ENTER]) h2 = 1;
+                        }
+                        occ++;
+                        if (h2) { clip_pop(); A.perform = 0; open_piece(i, 0); A.sel_step = k; A.scroll_to_step = 1; stage_for_piece(); return; }
                         xx += cw + S(6);
                     }
                 }
@@ -782,6 +967,8 @@ static void etude_view(Rect r) {
                     int h2 = 0; float cw = font_width(F_S, short_label(i), -1) + S(16);
                     if (xx + cw > x + w) { xx = x; y += S(28); }
                     chip(xx, y, short_label(i), MOTIF_COL[MO_GROUND], 1, &h2);
+                    if (A.kbd && occ == A.ecur) { d_rrect_line(rect(xx - S(3), y - S(3), cw + S(6), S(28)), S(13), S(1.8f), C_INK); if (A.in.key_pressed[KEY_ENTER]) h2 = 1; }
+                    occ++;
                     if (h2) { clip_pop(); open_piece(i, 0); return; }
                     xx += cw + S(6);
                 }
@@ -798,31 +985,50 @@ static void etude_view(Rect r) {
 
 /* ================================================================= help */
 static void help_overlay(Rect r) {
-    Rect b = rect(r.x + r.w / 2 - S(330), r.y + S(60), S(660), S(470));
-    float x = b.x + S(30), y = b.y + S(26);
     static const char *rows[][2] = {
-        { "Score", "every result and exercise of Chapters 1–2 as a column; every motif as a staff" },
-        { "hover / click", "read a column / derive it; hover a staff label for its motif, click for its etude" },
-        { "Space", "play the score (each column sounds its motifs as harmonics of a string)" },
-        { "1 – 7", "highlight one motif across the whole score" },
-        { "Perform", "name each move before it is shown: keys 0–7 (0 is Ground), Enter reveals" },
-        { "Read", "all steps shown; arrows walk through them; a motif key jumps to its next use" },
-        { "uses … →", "open the result a step depends on; follow any formula back to the ground" },
-        { "Backspace / Esc", "back along the breadcrumb, then to the score" },
+        { "#", "Anywhere" },
+        { "Alt+←  /  Alt+→", "back / forward to where you were (also Backspace, the mouse's side buttons, and ← → in the top bar)" },
+        { "Ctrl+K  or  /", "go to any result, exercise or motif by typing its number or name" },
+        { "S   E", "the Score / the Etudes" },
+        { "Esc", "close this, or go up to the Score" },
+        { "M", "sound on / off" },
+        { "F1  or  ?", "this help" },
+        { "#", "Score" },
+        { "← →   Home End", "move along the columns (Shift: jump a section)" },
+        { "↑ ↓   or 0–7", "choose a motif; then ← → jump to the next column that uses it" },
+        { "Enter", "derive the chosen column" },
+        { "Space", "play the score" },
+        { "#", "Piece" },
+        { "0–7", "Perform: name the next move (0 = Ground). Read: next step with that motif" },
+        { "Enter", "Perform: reveal the step. Read: follow the step's reference" },
+        { "↑ ↓   Home End", "walk through the steps" },
+        { "U", "follow the chosen step's reference (\"uses …\")" },
+        { "[   ]", "previous / next piece in book order" },
         { "Tab", "switch Perform and Read" },
-        { "Stage", "drag the dots, slide the slider; sound plays beats and harmonics" },
+        { "L   R", "show the lineage / reset your progress on this piece" },
+        { "PgUp PgDn", "scroll the text" },
+        { "#", "Etudes" },
+        { "↑ ↓   or 0–7", "choose a motif" },
+        { "← →   Enter", "walk through its occurrences / open one" },
     };
-    int i;
-    d_rect(r, calpha(C_PAPER, 0.75f));
+    int n = (int)(sizeof rows / sizeof rows[0]), i;
+    float colw = S(450), bw = colw * 2 + S(70), bh = S(560);
+    Rect b = rect(r.x + r.w / 2 - bw / 2, r.y + S(24), bw, bh);
+    float x = b.x + S(30), y = b.y + S(24), y0;
+    if (b.x < r.x + S(10)) { b.x = r.x + S(10); b.w = r.w - S(20); colw = (b.w - S(70)) / 2; x = b.x + S(30); }
+    d_rect(r, calpha(C_PAPER, 0.8f));
     d_rrect(b, S(12), C_CARD); d_rrect_line(b, S(12), 1, C_HAIR);
-    font_draw(F_H2I, x, y, "How to read this score", -1, C_INK); y += S(50);
-    for (i = 0; i < 10; i++) {
+    font_draw(F_H2I, x, y, "Keys", -1, C_INK);
+    d_text(F_XS, b.x + b.w - S(30) - font_width(F_XS, "Esc, F1 or a click closes this", -1), y + S(10), "Esc, F1 or a click closes this", C_MUTED);
+    y += S(46); y0 = y;
+    for (i = 0; i < n; i++) {
+        if (i == 12) { x += colw + S(30); y = y0; }
+        if (rows[i][0][0] == '#') { if (y > y0) y += S(6); d_text_spaced(F_CAP, x, y, rows[i][1], S(1.4f), C_MUTED); y += S(20); continue; }
         d_text(F_UIB, x, y, rows[i][0], C_INK);
-        y += font_wrap(F_TXS, x + S(160), y, b.w - S(220), rows[i][1], C_INK2, 1) + S(10);
+        y += font_wrap(F_TXS, x + S(150), y, colw - S(150), rows[i][1], C_INK2, 1) + S(5);
     }
-    y += S(6);
-    font_wrap(F_TXSI, x, y, b.w - S(60), "Each motif sounds one harmonic of the string from Chapter 1: Ground is the fundamental, Split the 2nd harmonic, and so on up to Shadow, the 8th.", C_MUTED, 1);
-    if (A.clicked && !A.consumed) { A.help = 0; A.consumed = 1; }
+    font_wrap(F_TXSI, b.x + S(30), b.y + b.h - S(46), b.w - S(60), "Each motif sounds one harmonic of the string from Chapter 1: Ground is the fundamental, Split the 2nd harmonic, and so on up to Shadow, the 8th.", C_MUTED, 1);
+    if (A.help_was_open && A.clicked && !A.consumed) { A.help = 0; A.consumed = 1; }
 }
 
 /* ============================================================= progress
@@ -931,19 +1137,79 @@ static void frame(void) {
     if (A.help) A.consumed = 0;
     top = rect(0, 0, (float)W, S(56)); body = rect(0, S(56), (float)W, (float)H - S(56));
 
-    /* keys */
-    if (!A.help) {
-        if (A.in.key_pressed[KEY_ESC] || A.in.key_pressed[KEY_BACKSPACE]) { if (A.view == V_ETUDE) A.view = V_SCORE; else if (A.view == V_PIECE) go_back(); }
-        if (A.in.key_pressed[KEY_TAB] && A.view == V_PIECE) { A.perform = !A.perform; if (CUR >= 0) A.sel_step = A.perform ? g_revealed[CUR] - 1 : (A.sel_step < 0 ? 0 : A.sel_step); stage_for_piece(); }
-        if (A.view == V_SCORE) {
-            int i;
-            if (A.in.key_pressed[KEY_SPACE]) { A.playing = !A.playing; A.play_x = 0; A.play_last = -1; }
-            for (i = 0; i < A.in.ntext; i++) { unsigned c = A.in.text[i];
-                if (c >= '1' && c <= '7') A.sel_filter = A.sel_filter == (int)(c - '0') ? -1 : (int)(c - '0');
-                if (c == '0') A.sel_filter = A.sel_filter == MO_GROUND ? -1 : MO_GROUND;
-                if (c == '?' || c == 'h' || c == 'H') A.help = 1; }
-        } else { int i; for (i = 0; i < A.in.ntext; i++) if (A.in.text[i] == '?') A.help = 1; }
-    } else if (A.in.key_pressed[KEY_ESC]) A.help = 0;
+    Loc before = loc_now();
+    A.help_was_open = A.help; A.nav_jumped = 0;
+    if (A.in.mdx || A.in.mdy) { if (A.kbd && (abs(A.in.mdx) + abs(A.in.mdy) > 2)) A.kbd = 0; }
+    {   int i, alt = A.in.alt;
+        /* overlays take the keyboard */
+        if (A.palette) {
+            /* handled when drawn, below */
+        } else if (A.help) {
+            int close = A.in.key_pressed[KEY_ESC] || A.in.key_pressed[KEY_F1];
+            for (i = 0; i < A.in.ntext; i++) if (A.in.text[i] == '?') close = 1;
+            if (close) A.help = 0;
+        } else {
+            int back = (alt && A.in.key_pressed[KEY_LEFT]) || A.in.key_pressed[KEY_BACKSPACE] || A.in.pressed[MOUSE_BACK];
+            int fwd = (alt && A.in.key_pressed[KEY_RIGHT]) || A.in.pressed[MOUSE_FWD];
+            if (A.in.key_pressed[KEY_F1]) A.help = 1;
+            if (A.in.ctrl && !alt) for (i = 0; i < A.in.ntext; i++) if (A.in.text[i] == 'k' || A.in.text[i] == 'K' || A.in.text[i] == 11) { A.palette = 1; A.pal_q[0] = 0; A.pal_sel = 0; A.in.ntext = 0; }
+            if (back) nav_back();
+            else if (fwd) nav_forward();
+            else if (A.in.key_pressed[KEY_ESC] && A.view != V_SCORE) go_score();
+            if (alt) { A.in.key_pressed[KEY_LEFT] = A.in.key_pressed[KEY_RIGHT] = 0; A.in.ntext = 0; }
+            A.in.key_pressed[KEY_BACKSPACE] = 0;
+            for (i = 0; i < A.in.ntext; i++) {
+                unsigned c = A.in.text[i];
+                if (c == '?') A.help = 1;
+                else if (c == '/') { A.palette = 1; A.pal_q[0] = 0; A.pal_sel = 0; }
+                else if (c == 's' || c == 'S') { if (A.view != V_SCORE) go_score(); }
+                else if (c == 'e' || c == 'E') { if (A.view != V_ETUDE) open_etude(A.etude); }
+                else if (c == 'm' || c == 'M') synth_mute(!synth_muted());
+            }
+            if (A.palette || A.help) A.in.ntext = 0;
+            if (A.view == V_PIECE && A.in.key_pressed[KEY_TAB]) { A.perform = !A.perform; if (CUR >= 0) A.sel_step = A.perform ? g_revealed[CUR] - 1 : (A.sel_step < 0 ? 0 : A.sel_step); stage_for_piece(); }
+            if (A.view == V_SCORE) {
+                int col = A.kcol >= 0 ? A.kcol : (A.hov_col >= 0 ? A.hov_col : -1), moved = 0;
+                if (A.in.key_pressed[KEY_SPACE]) { A.playing = !A.playing; A.play_x = 0; A.play_last = -1; }
+                for (i = 0; i < A.in.ntext; i++) { unsigned c = A.in.text[i];
+                    if (c >= '1' && c <= '7') A.sel_filter = A.sel_filter == (int)(c - '0') ? -1 : (int)(c - '0');
+                    if (c == '0') A.sel_filter = A.sel_filter == MO_GROUND ? -1 : MO_GROUND; }
+                if (A.in.key_pressed[KEY_UP] || A.in.key_pressed[KEY_DOWN]) {
+                    /* walk the staves: -1 (none), Split ... Shadow, Ground */
+                    static const int order[MO_COUNT + 1] = { -1, MO_SPLIT, MO_TURN, MO_MIRROR, MO_LOOP, MO_HOLD, MO_LANES, MO_SHADOW, MO_GROUND };
+                    int k, at = 0;
+                    for (k = 0; k <= MO_COUNT; k++) if (order[k] == A.sel_filter) at = k;
+                    at += A.in.key_pressed[KEY_DOWN] ? 1 : -1;
+                    if (at < 0) at = MO_COUNT; if (at > MO_COUNT) at = 0;
+                    A.sel_filter = order[at];
+                }
+                if (A.in.key_pressed[KEY_RIGHT] || A.in.key_pressed[KEY_LEFT]) {
+                    int dir = A.in.key_pressed[KEY_RIGHT] ? 1 : -1, c = col < 0 ? (dir > 0 ? -1 : NPIECES) : col;
+                    if (A.in.shift) {   /* to the next section */
+                        int sec = c >= 0 && c < NPIECES ? PIECES[c].section : -1;
+                        do c += dir; while (c >= 0 && c < NPIECES && PIECES[c].section == sec);
+                        if (dir < 0 && c >= 0) { int s2 = PIECES[c].section; while (c > 0 && PIECES[c - 1].section == s2) c--; }
+                    } else if (A.sel_filter >= 0) {
+                        do c += dir; while (c >= 0 && c < NPIECES && !PIECE_MOTIFS[c][A.sel_filter]);
+                    } else c += dir;
+                    if (c >= 0 && c < NPIECES) col = c;
+                    moved = 1;
+                }
+                if (A.in.key_pressed[KEY_HOME]) { col = 0; moved = 1; }
+                if (A.in.key_pressed[KEY_END]) { col = NPIECES - 1; moved = 1; }
+                if (moved && col >= 0) { A.kcol = col; A.kbd = 1; play_chord(col); }
+                if (A.in.key_pressed[KEY_ENTER]) { if (col < 0) col = 0; A.kcol = col; open_piece(col, 0); }
+            }
+            if (A.view == V_ETUDE) {
+                static const int order[MO_COUNT] = { MO_GROUND, MO_SPLIT, MO_TURN, MO_MIRROR, MO_LOOP, MO_HOLD, MO_LANES, MO_SHADOW };
+                int k, at = 0;
+                for (k = 0; k < MO_COUNT; k++) if (order[k] == A.etude) at = k;
+                if (A.in.key_pressed[KEY_DOWN] && at < MO_COUNT - 1) { open_etude(order[at + 1]); A.kbd = 1; }
+                if (A.in.key_pressed[KEY_UP] && at > 0) { open_etude(order[at - 1]); A.kbd = 1; }
+                for (i = 0; i < A.in.ntext; i++) { unsigned c = A.in.text[i]; if (c >= '0' && c <= '7') { open_etude(c == '0' ? MO_GROUND : (int)(c - '0')); A.kbd = 1; } }
+            }
+        }
+    }
 
     if (A.playing) {
         A.play_x += A.dt * 3.2f;
@@ -953,14 +1219,22 @@ static void frame(void) {
     if (A.shake > 0) A.shake -= A.dt; if (A.flash > 0) A.flash -= A.dt * 2.5f;
 
     {   int saved_clicked = A.clicked;
-        if (A.help) A.clicked = 0;       /* the overlay takes clicks */
+        Input keep = A.in;
+        if (A.help || A.palette) {   /* an overlay takes the clicks and the keys */
+            A.clicked = 0; A.in.ntext = 0; memset(A.in.key_pressed, 0, sizeof A.in.key_pressed); A.in.wheel = 0;
+        }
         top_bar(top);
         if (A.view == V_SCORE) score_view(body);
         else if (A.view == V_PIECE) piece_view(body);
         else etude_view(body);
         A.clicked = saved_clicked;
+        if (A.help || A.palette) { A.in.ntext = keep.ntext; memcpy(A.in.text, keep.text, sizeof A.in.text); memcpy(A.in.key_pressed, keep.key_pressed, sizeof A.in.key_pressed); }
+        if (A.palette) { int had = A.palette; A.consumed = 0; palette_overlay(body); (void)had; }
+        else if (A.help) { A.consumed = 0; if (!A.help_was_open) A.consumed = 1; help_overlay(body); }
+        {   Loc after = loc_now();   /* record every change of place */
+            if (!A.nav_jumped && !same_place(&before, &after)) { push_hist(g_back, &g_nb, &before); g_nf = 0; }
+        }
     }
-    if (A.help) { A.consumed = 0; help_overlay(body); }
     if (A.view != V_PIECE && A.view != V_ETUDE) synth_release_all();
     plat_cursor(A.want_hand ? CURSOR_HAND : CURSOR_ARROW);
 }
@@ -968,7 +1242,7 @@ static void frame(void) {
 int app_main(int argc, char **argv) {
     int i, max_frames = 0; double last;
     memset(&A, 0, sizeof A);
-    A.hov_col = -1; A.hov_staff = -1; A.sel_filter = -1; A.perform = 1; A.wrong_key = -1; A.etude = MO_SPLIT; A.st.drag = -1; A.st.scene = -1;
+    A.hov_col = -1; A.hov_staff = -1; A.kcol = -1; A.sel_filter = -1; A.perform = 1; A.wrong_key = -1; A.etude = MO_SPLIT; A.st.drag = -1; A.st.scene = -1;
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--selftest")) { A.selftest = 1; A.shot_dir = i + 1 < argc ? argv[++i] : "."; }
     }
