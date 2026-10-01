@@ -1,0 +1,1013 @@
+/* Leitmotif: Chapters 1-2 of a harmonic analysis text, read as a score.
+
+   Three views share one vocabulary of seven motifs (plus the ground):
+     Score   - the whole two chapters at once: every result and exercise is a
+               column, every motif a staff, so recurring ideas read as
+               recurring lines. A fisheye lens magnifies around the cursor.
+     Piece   - one result or exercise: its derivation as a sequence of moves.
+               In Perform mode you choose each move on the motif keyboard
+               before it is revealed; references open the earlier piece, so
+               any formula can be followed back to the ground.
+     Etudes  - each motif alone: its canonical picture and every place it is
+               used. */
+#include "gl_inc.h"
+#include "platform.h"
+#include "mem.h"
+#include "font.h"
+#include "draw.h"
+#include "tex.h"
+#include "synth.h"
+#include "content.h"
+#include "stage.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+enum { V_SCORE, V_PIECE, V_ETUDE };
+#define MC_DUMMY_PLAY MOTIF_COL[MO_LOOP]
+
+static struct {
+    Input in;
+    int view, help;
+    int msaa;
+    double t; float dt;
+    /* score */
+    float focus, focus_amt; int hov_col, hov_staff, sel_filter;
+    int playing; float play_x; int play_last;
+    /* piece */
+    int stack[24], depth;          /* breadcrumb of pieces */
+    int perform;
+    int sel_step;
+    float scroll, scroll_target, content_h;
+    float shake; int shake_key; int wrong_key;
+    int flash_key; float flash;
+    int hint_shown;
+    int lineage_open;
+    /* etude */
+    int etude;
+    float escroll, escroll_target, econtent_h;
+    Stage st;
+    /* mouse */
+    int clicked, consumed, want_hand;
+    /* self-test */
+    int selftest, frames; const char *shot_dir;
+} A;
+
+static int g_revealed[160];
+static int g_wrong[160];
+
+#define CUR (A.depth > 0 ? A.stack[A.depth - 1] : -1)
+
+/* ------------------------------------------------------------- helpers */
+static int hover(Rect r) { return in_rect(r, (float)A.in.mx, (float)A.in.my); }
+static int click(Rect r) {
+    if (hover(r)) { A.want_hand = 1; if (A.clicked && !A.consumed) { A.consumed = 1; return 1; } }
+    return 0;
+}
+static void play_motif(int m, float amp) { synth_pluck(110.0f * MOTIFS[m].harmonic, amp, 0.9f); }
+static void play_chord(int p) {
+    int m;
+    synth_pluck(110.0f, 0.10f, 1.6f);
+    for (m = 1; m < MO_COUNT; m++) if (PIECE_MOTIFS[p][m]) synth_pluck(110.0f * MOTIFS[m].harmonic, 0.07f + 0.02f * PIECE_MOTIFS[p][m], 1.3f);
+}
+static const char *kind_name(int k) { return k == K_GROUND ? "GROUND" : k == K_DEF ? "DEFINITION" : k == K_PROBLEM ? "EXERCISE" : "RESULT"; }
+static const char *short_label(int p) {
+    static char buf[8][32]; static int k;
+    const Piece *pc = &PIECES[p]; char *b = buf[k = (k + 1) % 8];
+    if (pc->kind == K_PROBLEM && pc->id[0] == 'P') snprintf(b, 32, "P%s", pc->id + 1);
+    else snprintf(b, 32, "%s", pc->label);
+    return b;
+}
+
+static RichStyle rs(int face, int iface, float mpx) { RichStyle r; r.face = face; r.iface = iface; r.mathpx = mpx; r.line_gap = S(3); return r; }
+
+/* a chip: small rounded label; returns width; sets *hit when clicked */
+static float chip(float x, float y, const char *text, Color c, int filled, int *hit) {
+    float w = font_width(F_S, text, -1) + S(16), h = S(22);
+    Rect r = rect(x, y, w, h); int hv = hover(r);
+    d_rrect(r, S(11), filled ? calpha(c, hv ? 0.22f : 0.13f) : (hv ? calpha(c, 0.10f) : C_CARD));
+    d_rrect_line(r, S(11), 1, calpha(c, hv ? 0.9f : 0.45f));
+    font_draw(F_S, x + S(8), y + (h - font_line(F_S)) / 2, text, -1, cmix(c, C_INK, 0.25f));
+    if (hit) *hit = click(r);
+    return w;
+}
+
+static int button(Rect r, const char *label, int on) {
+    int hv = hover(r);
+    d_rrect(r, S(6), on ? C_INK : hv ? C_WASH : C_CARD);
+    if (!on) d_rrect_line(r, S(6), 1, C_HAIR);
+    d_text_center(F_UI, r.x + r.w / 2, r.y + (r.h - font_line(F_UI)) / 2, label, on ? C_PAPER : C_INK2);
+    return click(r);
+}
+
+/* ------------------------------------------------------------ navigation */
+static void stage_for_piece(void);
+static void open_piece(int p, int push) {
+    if (p < 0) return;
+    if (!push) A.depth = 0;
+    if (A.depth > 0 && A.stack[A.depth - 1] == p) { A.view = V_PIECE; return; }
+    if (A.depth < 24) A.stack[A.depth++] = p;
+    else { memmove(A.stack, A.stack + 1, sizeof(int) * 23); A.stack[23] = p; }
+    A.view = V_PIECE; A.scroll = A.scroll_target = 0; A.hint_shown = 0;
+    A.sel_step = A.perform ? g_revealed[p] - 1 : 0;
+    if (!PIECES[p].nsteps) A.sel_step = -1;
+    synth_release_all();
+    stage_for_piece();
+    play_chord(p);
+}
+static void go_back(void) {
+    if (A.view == V_PIECE && A.depth > 1) { A.depth--; A.view = V_PIECE; A.sel_step = A.perform ? g_revealed[CUR] - 1 : 0; A.scroll = A.scroll_target = 0; stage_for_piece(); }
+    else { A.view = V_SCORE; A.depth = 0; synth_release_all(); }
+}
+
+static void stage_for_piece(void) {
+    int p = CUR, s;
+    const Piece *pc;
+    if (p < 0) return;
+    pc = &PIECES[p];
+    s = A.sel_step;
+    if (A.perform && s >= g_revealed[p]) s = g_revealed[p] - 1;
+    for (; s >= 0; s--) if (pc->steps[s].scene >= 0) { stage_set(&A.st, pc->steps[s].scene, pc->steps[s].p); return; }
+    stage_set(&A.st, pc->scene, pc->p);
+}
+
+/* ============================================================== top bar */
+static void top_bar(Rect r) {
+    float x = r.x + S(24);
+    d_rect(r, C_PAPER);
+    d_line(r.x, r.y + r.h - 0.5f, r.x + r.w, r.y + r.h - 0.5f, 1, C_HAIR);
+    x = font_draw(F_H2I, x, r.y + (r.h - font_line(F_H2I)) / 2 + S(1), "Leitmotif", -1, C_INK) + S(14);
+    d_text_spaced(F_CAP, x, r.y + (r.h - font_line(F_CAP)) / 2 + S(2), "CHAPTERS 1–2 AS A SCORE", S(1.6f), C_MUTED);
+    x += text_spaced_w(F_CAP, "CHAPTERS 1–2 AS A SCORE", S(1.6f)) + S(30);
+    {   const char *tabs[3] = { "Score", "Etudes", "Piece" }; int i;
+        for (i = 0; i < 3; i++) {
+            float w = font_width(F_UIB, tabs[i], -1) + S(22); Rect b = rect(x, r.y + S(12), w, r.h - S(24));
+            int on = (i == 0 && A.view == V_SCORE) || (i == 1 && A.view == V_ETUDE) || (i == 2 && A.view == V_PIECE);
+            if (i == 2 && A.depth == 0) continue;
+            if (on) d_rrect(b, S(6), C_INK);
+            else if (hover(b)) d_rrect(b, S(6), C_WASH);
+            d_text_center(F_UIB, b.x + b.w / 2, b.y + (b.h - font_line(F_UIB)) / 2, tabs[i], on ? C_PAPER : C_INK2);
+            if (click(b)) { if (i == 0) { A.view = V_SCORE; synth_release_all(); } else if (i == 1) { A.view = V_ETUDE; stage_set(&A.st, MOTIFS[A.etude].scene, MOTIFS[A.etude].p); synth_release_all(); } else { A.view = V_PIECE; stage_for_piece(); } }
+            x += w + S(6);
+        }
+    }
+    if (A.view == V_PIECE && A.depth > 0) {   /* breadcrumb */
+        int i; x += S(14);
+        for (i = 0; i < A.depth; i++) {
+            const char *s = short_label(A.stack[i]); float w = font_width(F_S, s, -1);
+            Rect b = rect(x - S(4), r.y + S(14), w + S(8), r.h - S(28));
+            if (i > 0) { d_text(F_S, x - S(14), r.y + (r.h - font_line(F_S)) / 2, "›", C_FAINT); }
+            if (hover(b) && i < A.depth - 1) d_rrect(b, S(4), C_WASH);
+            d_text(F_S, x, r.y + (r.h - font_line(F_S)) / 2, s, i == A.depth - 1 ? C_INK : C_MUTED);
+            if (i < A.depth - 1 && click(b)) { A.depth = i + 1; A.sel_step = A.perform ? g_revealed[CUR] - 1 : 0; A.scroll = A.scroll_target = 0; stage_for_piece(); }
+            x += w + S(20);
+            if (x > r.x + r.w - S(420)) break;
+        }
+    }
+    {   float rx = r.x + r.w - S(24);
+        Rect b = rect(rx - S(34), r.y + S(12), S(34), r.h - S(24));
+        if (button(b, "?", A.help)) A.help = !A.help;
+        rx -= S(42);
+        b = rect(rx - S(76), r.y + S(12), S(76), r.h - S(24));
+        if (button(b, synth_muted() ? "sound off" : "sound on", 0)) synth_mute(!synth_muted());
+        rx -= S(84);
+        if (A.view == V_PIECE) {
+            b = rect(rx - S(64), r.y + S(12), S(64), r.h - S(24));
+            if (button(b, "Read", !A.perform)) { A.perform = 0; }
+            rx -= S(68);
+            b = rect(rx - S(80), r.y + S(12), S(80), r.h - S(24));
+            if (button(b, "Perform", A.perform)) { A.perform = 1; if (CUR >= 0) A.sel_step = g_revealed[CUR] - 1; stage_for_piece(); }
+        }
+    }
+}
+
+/* ================================================================ score */
+typedef struct { float x, w; } Col;
+static Col g_cols[160];
+static float g_staff_y[MO_COUNT];   /* y of each staff line */
+static Rect g_staff_area;
+
+/* order of staves top to bottom: motifs 1..7, then the ground */
+static int staff_of(int m) { return m == MO_GROUND ? MO_COUNT - 1 : m - 1; }
+static int motif_of_staff(int s) { return s == MO_COUNT - 1 ? MO_GROUND : s + 1; }
+
+static void layout_columns(Rect r) {
+    int i; float total = 0, x, wts[160];
+    for (i = 0; i < NPIECES; i++) {
+        float d = (float)i - A.focus, w = 1 + A.focus_amt * 5.0f * expf(-d * d / (2 * 2.6f * 2.6f));
+        if (i > 0 && PIECES[i].section != PIECES[i - 1].section) w += 0.7f;
+        wts[i] = w; total += w;
+    }
+    x = r.x;
+    for (i = 0; i < NPIECES; i++) {
+        float w = wts[i] / total * r.w, gap = (i > 0 && PIECES[i].section != PIECES[i - 1].section) ? 0.7f / total * r.w : 0;
+        g_cols[i].x = x + gap + (w - gap) / 2; g_cols[i].w = w - gap;
+        x += w;
+    }
+}
+
+static void notehead(float x, float y, float r, int kind, Color c, int hollow) {
+    if (kind == K_GROUND || kind == K_DEF) {
+        float pts[8] = { x, y - r * 1.1f, x + r * 1.1f, y, x, y + r * 1.1f, x - r * 1.1f, y };
+        if (hollow) { d_line(pts[0], pts[1], pts[2], pts[3], S(1.4f), c); d_line(pts[2], pts[3], pts[4], pts[5], S(1.4f), c); d_line(pts[4], pts[5], pts[6], pts[7], S(1.4f), c); d_line(pts[6], pts[7], pts[0], pts[1], S(1.4f), c); }
+        else d_poly(pts, 4, c);
+        return;
+    }
+    if (hollow) { d_ring(x, y, r * 0.92f, S(1.6f), c); }
+    else d_circle(x, y, r, c);
+}
+
+static void score_view(Rect r) {
+    int i, s, m;
+    float gut = S(176), top = r.y + S(150), staff_gap, bottom_notes = S(262);
+    float sy0, ground_gap = S(16);
+    Rect sa;
+    float avail = r.h - (top - r.y) - bottom_notes - S(70);
+    staff_gap = (avail - ground_gap) / 7.5f;
+    if (staff_gap < S(20)) staff_gap = S(20);
+    if (staff_gap > S(46)) staff_gap = S(46);
+    sy0 = top + S(30);
+    for (s = 0; s < MO_COUNT; s++) g_staff_y[s] = sy0 + s * staff_gap + (s == MO_COUNT - 1 ? ground_gap : 0);
+    sa = rect(r.x + gut, sy0 - staff_gap * 0.5f, r.w - gut - S(28), g_staff_y[MO_COUNT - 1] - sy0 + staff_gap);
+    g_staff_area = sa;
+
+    /* header: the thesis */
+    {   float hx = r.x + S(28), hy = r.y + S(22);
+        font_draw(F_H2I, hx, hy, "Two mirrors make a loop; a sum of turns is a product.", -1, C_INK);
+        font_wrap(F_TXS, hx, hy + S(42), r.w * 0.62f,
+                  "Each column is a result or exercise, in book order. Each staff is a motif: a move that recurs. A note means the derivation makes that move, and larger notes mean more often. Hover to read, click to derive. Space plays the score.", C_MUTED, 1);
+        {   /* legend */
+            float lx = r.x + r.w * 0.70f, ly = hy + S(6);
+            notehead(lx, ly + S(8), S(5), K_RESULT, C_INK, 0); d_text(F_S, lx + S(12), ly, "result", C_INK2);
+            notehead(lx + S(80), ly + S(8), S(5), K_PROBLEM, C_INK, 1); d_text(F_S, lx + S(92), ly, "exercise", C_INK2);
+            notehead(lx + S(170), ly + S(8), S(5), K_DEF, C_INK, 0); d_text(F_S, lx + S(182), ly, "given / definition", C_INK2);
+            d_text(F_S, lx, ly + S(24), "♣  essential exercise", C_INK2);
+            d_circle(lx + S(134), ly + S(32), S(3), MOTIF_COL[MO_LOOP]); d_text(F_S, lx + S(144), ly + S(24), "performed by you", C_INK2);
+            d_text(F_S, lx, ly + S(48), "keys 1\u20137 (0 = ground) highlight one motif", C_INK2);
+        }
+    }
+
+    /* fisheye focus */
+    {   int inside = in_rect(rect(sa.x, sa.y - S(40), sa.w, sa.h + S(60)), (float)A.in.mx, (float)A.in.my);
+        float target_amt = inside ? 1.0f : 0.0f;
+        if (inside) {
+            /* invert the current layout to find the column under the mouse */
+            float best = 1e9f; int bi = 0;
+            for (i = 0; i < NPIECES; i++) { float d = fabsf(g_cols[i].x - A.in.mx); if (d < best) { best = d; bi = i; } }
+            {   float frac = (float)bi;
+                if (bi + 1 < NPIECES && A.in.mx > g_cols[bi].x) frac += (A.in.mx - g_cols[bi].x) / (g_cols[bi + 1].x - g_cols[bi].x + 1e-3f);
+                else if (bi > 0 && A.in.mx < g_cols[bi].x) frac -= (g_cols[bi].x - A.in.mx) / (g_cols[bi].x - g_cols[bi - 1].x + 1e-3f);
+                A.focus += (frac - A.focus) * 0.25f; }
+        }
+        if (A.playing) { A.focus += (A.play_x - A.focus) * 0.2f; target_amt = 1; }
+        A.focus_amt += (target_amt - A.focus_amt) * 0.12f;
+        layout_columns(sa);
+    }
+
+    /* movements and sections */
+    {   int sec = -1; float ymv = g_staff_y[0] - S(76), ysec = g_staff_y[MO_COUNT - 1] + S(14);
+        for (i = 0; i < NPIECES; i++) {
+            if (PIECES[i].section != sec) {
+                float bx = g_cols[i].x - g_cols[i].w / 2 - S(2);
+                sec = PIECES[i].section;
+                if (i > 0) {
+                    int newch = SECTIONS[sec].chapter != SECTIONS[PIECES[i - 1].section].chapter;
+                    d_line(bx, g_staff_y[0] - S(8), bx, g_staff_y[MO_COUNT - 1] + S(8), newch ? S(2) : 1, newch ? C_INK : C_HAIR);
+                    if (newch) d_line(bx - S(4), g_staff_y[0] - S(8), bx - S(4), g_staff_y[MO_COUNT - 1] + S(8), 1, C_INK);
+                }
+                if (i == 0 || SECTIONS[sec].chapter != SECTIONS[PIECES[i - 1].section].chapter) {
+                    const char *mv = SECTIONS[sec].chapter == 1 ? "I.  Tones \u2014 the signature of periodicity" : "II.  Beats \u2014 the complex plane";
+                    font_draw(F_H3, bx + S(6), ymv, mv, -1, C_INK);
+                }
+                {   char buf[64]; snprintf(buf, sizeof buf, "\u00a7%s %s", SECTIONS[sec].num, g_cols[i].w > S(30) || 1 ? "" : "");
+                    font_draw(F_XS, bx + S(5), ysec, buf, -1, C_MUTED); }
+            }
+        }
+        {   float ex = sa.x + sa.w + S(4);
+            d_line(ex, g_staff_y[0] - S(8), ex, g_staff_y[MO_COUNT - 1] + S(8), S(3), C_INK);
+            d_line(ex - S(5), g_staff_y[0] - S(8), ex - S(5), g_staff_y[MO_COUNT - 1] + S(8), 1, C_INK); }
+    }
+
+    /* hover detection */
+    A.hov_col = -1; A.hov_staff = -1;
+    if (in_rect(rect(sa.x, sa.y - S(50), sa.w, sa.h + S(60)), (float)A.in.mx, (float)A.in.my)) {
+        for (i = 0; i < NPIECES; i++) if (fabsf(A.in.mx - g_cols[i].x) <= g_cols[i].w / 2 + 0.5f) { A.hov_col = i; break; }
+    }
+    for (s = 0; s < MO_COUNT; s++) {
+        Rect lr = rect(r.x, g_staff_y[s] - staff_gap / 2, gut, staff_gap);
+        if (hover(lr)) { A.hov_staff = s; A.want_hand = 1; if (click(lr)) { A.etude = motif_of_staff(s); A.view = V_ETUDE; stage_set(&A.st, MOTIFS[A.etude].scene, MOTIFS[A.etude].p); } }
+    }
+    {   int hl_m = A.hov_staff >= 0 ? motif_of_staff(A.hov_staff) : A.sel_filter;
+
+        /* hovered column band */
+        if (A.hov_col >= 0) d_rect(rect(g_cols[A.hov_col].x - g_cols[A.hov_col].w / 2, sa.y - S(50), g_cols[A.hov_col].w, sa.h + S(92)), calpha(C_WASH, 0.9f));
+        if (A.playing) { float px = sa.x + 0; int pc = (int)A.play_x; if (pc >= 0 && pc < NPIECES) px = g_cols[pc].x; d_line(px, sa.y - S(50), px, sa.y + sa.h + S(30), S(1.5f), calpha(MC_DUMMY_PLAY, 1)); }
+
+        /* staff lines and labels */
+        for (s = 0; s < MO_COUNT; s++) {
+            int mm = motif_of_staff(s); Color c = MOTIF_COL[mm];
+            int dim = hl_m >= 0 && hl_m != mm;
+            float y = g_staff_y[s];
+            d_line(sa.x - S(10), y, sa.x + sa.w + S(4), y, mm == MO_GROUND ? S(1.8f) : 1, calpha(mm == MO_GROUND ? C_INK2 : C_HAIR, dim ? 0.5f : 1));
+            motif_glyph(mm, r.x + S(34), y, S(20), S(1.6f), calpha(c, dim ? 0.35f : 1));
+            d_text_spaced(F_CAP, r.x + S(56), y - font_line(F_CAP) / 2, mm == MO_GROUND ? "GROUND" : MOTIFS[mm].name, S(1.5f), calpha(cmix(c, C_INK, 0.2f), dim ? 0.35f : 1));
+            {   char nb[8]; int cnt = 0; for (i = 0; i < NPIECES; i++) if (PIECE_MOTIFS[i][mm]) cnt++;
+                snprintf(nb, sizeof nb, "%d", cnt); d_text_right(F_XS, r.x + gut - S(12), y - font_line(F_XS) / 2, nb, calpha(C_FAINT, dim ? 0.4f : 1)); }
+        }
+
+        /* slurs for the hovered column: what it needs (above), who uses it (below) */
+        if (A.hov_col >= 0) {
+            int users[64], nu = piece_users(A.hov_col, users, 64), k;
+            float x0 = g_cols[A.hov_col].x, ytop = g_staff_y[0] - S(54), ybot = g_staff_y[MO_COUNT - 1] + S(26);
+            for (k = 0; k < 6; k++) {
+                int q = piece_need(A.hov_col, k); float x1, mx_, h; static float pts[2 * 41]; int j;
+                if (q < 0) continue;
+                x1 = g_cols[q].x; mx_ = (x0 + x1) / 2; h = S(14) + fabsf(x1 - x0) * 0.12f; if (h > S(60)) h = S(60);
+                for (j = 0; j <= 40; j++) { float t = j / 40.0f; pts[2 * j] = x0 + (x1 - x0) * t; pts[2 * j + 1] = ytop - h * 4 * t * (1 - t); }
+                d_polyline(pts, 41, S(1.4f), calpha(C_INK, 0.55f));
+                d_circle(x1, ytop, S(2.5f), C_INK); (void)mx_;
+            }
+            for (k = 0; k < nu; k++) {
+                float x1 = g_cols[users[k]].x, h = S(12) + fabsf(x1 - x0) * 0.1f; static float pts[2 * 41]; int j;
+                if (h > S(50)) h = S(50);
+                for (j = 0; j <= 40; j++) { float t = j / 40.0f; pts[2 * j] = x0 + (x1 - x0) * t; pts[2 * j + 1] = ybot + h * 4 * t * (1 - t); }
+                d_polyline(pts, 41, S(1.2f), calpha(MOTIF_COL[MO_TURN], 0.45f));
+                d_circle(x1, ybot, S(2.2f), MOTIF_COL[MO_TURN]);
+            }
+        }
+
+        /* the notes */
+        for (i = 0; i < NPIECES; i++) {
+            const Piece *pc = &PIECES[i];
+            float x = g_cols[i].x, ymin = 1e9f, ymax = -1e9f, scale = 0.75f + 0.5f * fminf(1, (g_cols[i].w - S(10)) / S(40));
+            int hollow = pc->kind == K_PROBLEM, any_hl = 0;
+            float flash = (A.playing && (int)A.play_x == i) ? 1 : 0;
+            for (m = 0; m < MO_COUNT; m++) if (PIECE_MOTIFS[i][m]) {
+                float y = g_staff_y[staff_of(m)]; if (y < ymin) ymin = y; if (y > ymax) ymax = y;
+                if (m == hl_m) any_hl = 1;
+            }
+            if (ymin < 1e8f && ymax > ymin) d_line(x, ymin, x, ymax, 1, calpha(C_INK, hl_m >= 0 && !any_hl ? 0.15f : 0.45f));
+            for (m = 0; m < MO_COUNT; m++) if (PIECE_MOTIFS[i][m]) {
+                int cnt = PIECE_MOTIFS[i][m]; float rr = S(4.2f) * scale * (cnt >= 3 ? 1.45f : cnt == 2 ? 1.22f : 1);
+                Color c = MOTIF_COL[m];
+                if (hl_m >= 0 && m != hl_m) c = calpha(cmix(c, C_PAPER, 0.4f), any_hl ? 0.5f : 0.25f);
+                if (flash > 0) d_circle(x, g_staff_y[staff_of(m)], rr * 2.2f, calpha(MOTIF_COL[m], 0.25f));
+                notehead(x, g_staff_y[staff_of(m)], rr, pc->kind, c, hollow && m != MO_GROUND);
+            }
+            /* column label, essential mark, and your progress */
+            {   const char *lb = short_label(i); float lw = font_width(F_XS, lb, -1);
+                float ly = g_staff_y[0] - S(42);
+                if (pc->essential) d_text_center(F_XS, x, g_staff_y[0] - S(24), "\u2663", calpha(C_INK, 0.6f));
+                if (g_cols[i].w > lw + S(4) || i == A.hov_col) d_text_center(F_XS, x, ly, lb, i == A.hov_col ? C_INK : C_MUTED);
+                else d_line(x, ly + S(7), x, ly + S(11), 1, C_FAINT);
+                if (pc->nsteps && g_revealed[i] >= pc->nsteps) d_circle(x, g_staff_y[MO_COUNT - 1] + S(36), S(3), MOTIF_COL[MO_LOOP]);
+                else if (pc->nsteps && g_revealed[i] > 0) d_ring(x, g_staff_y[MO_COUNT - 1] + S(36), S(3), 1, MOTIF_COL[MO_LOOP]);
+            }
+        }
+        if (A.hov_col >= 0) { A.want_hand = 1; if (click(rect(sa.x, sa.y - S(50), sa.w, sa.h + S(60)))) open_piece(A.hov_col, 0); }
+    }
+
+    /* programme notes */
+    {   Rect nb = rect(r.x + S(24), r.y + r.h - bottom_notes, r.w - S(48), bottom_notes - S(18));
+        d_rrect(nb, S(10), C_CARD); d_rrect_line(nb, S(10), 1, C_HAIR);
+        if (A.hov_col >= 0) {
+            const Piece *pc = &PIECES[A.hov_col]; float x = nb.x + S(24), y = nb.y + S(18), mw = nb.w * 0.62f, px;
+            char head[160];
+            snprintf(head, sizeof head, "%s%s   ·   %s", kind_name(pc->kind), pc->essential ? " ♣" : "", pc->label);
+            d_text_spaced(F_CAP, x, y, head, S(1.2f), C_MUTED);
+            font_draw(F_H2, x, y + S(18), pc->name, -1, C_INK);
+            px = tex_fit(pc->statement, S(26), mw);
+            {   TexBox b = tex_measure(pc->statement, px); tex_draw(pc->statement, x, y + S(66) + b.asc, px, C_INK); y += S(66) + b.asc + b.desc + S(14); }
+            rich(pc->gist, x, y, mw, rs(F_TXS, F_TXSI, S(15)), C_INK2, 1);
+            {   float cx = nb.x + nb.w * 0.70f, cy = nb.y + S(22); int k, n = 0;
+                d_text_spaced(F_CAP, cx, cy, "MOVES", S(1.4f), C_MUTED); cy += S(22);
+                for (m = 1; m < MO_COUNT; m++) if (PIECE_MOTIFS[A.hov_col][m]) {
+                    char t[48]; snprintf(t, sizeof t, "%s ×%d", MOTIFS[m].name, PIECE_MOTIFS[A.hov_col][m]);
+                    motif_glyph(m, cx + S(9) + (n % 2) * S(150), cy + S(9) + (n / 2) * S(26), S(16), S(1.4f), MOTIF_COL[m]);
+                    d_text(F_UI, cx + S(24) + (n % 2) * S(150), cy + (n / 2) * S(26), t, cmix(MOTIF_COL[m], C_INK, 0.3f));
+                    n++;
+                }
+                if (!pc->nsteps) { motif_glyph(MO_GROUND, cx + S(9), cy + S(9), S(16), S(1.4f), MOTIF_COL[MO_GROUND]); d_text(F_UI, cx + S(24), cy, pc->kind == K_DEF ? "a definition: taken as given" : "ground: taken as given", C_INK2); n = 2; }
+                cy += ((n + 1) / 2) * S(26) + S(10);
+                {   int any = 0; float xx = cx;
+                    for (k = 0; k < 6; k++) { int q = piece_need(A.hov_col, k); if (q < 0) continue;
+                        if (!any) { d_text(F_XS, cx, cy, "needs", C_MUTED); cy += S(16); any = 1; }
+                        xx += chip(xx, cy, short_label(q), C_INK, 0, NULL) + S(6); }
+                    if (any) cy += S(30);
+                }
+                d_text(F_TXSI, cx, nb.y + nb.h - S(30), pc->nsteps ? "click to derive it →" : "click to see it →", MOTIF_COL[MO_TURN]);
+            }
+        } else if (A.hov_staff >= 0) {
+            int mm = motif_of_staff(A.hov_staff); float x = nb.x + S(24), y = nb.y + S(18), cnt = 0;
+            for (i = 0; i < NPIECES; i++) if (PIECE_MOTIFS[i][mm]) cnt++;
+            motif_glyph(mm, x + S(14), y + S(20), S(30), S(2.2f), MOTIF_COL[mm]);
+            font_draw(F_H2, x + S(40), y + S(4), MOTIFS[mm].name, -1, MOTIF_COL[mm]);
+            {   char buf[256]; snprintf(buf, sizeof buf, "to %s", MOTIFS[mm].verb);
+                rich(buf, x + S(40), y + S(40), nb.w * 0.6f, rs(F_TXI, F_TXI, S(16)), C_INK2, 1); }
+            rich(MOTIFS[mm].essence, x, y + S(84), nb.w * 0.62f, rs(F_TXS, F_TXSI, S(15)), C_INK2, 1);
+            {   char buf[160]; snprintf(buf, sizeof buf, "Heard in %d of %d pieces.  Its question: %s", (int)cnt, NPIECES, MOTIFS[mm].question);
+                rich(buf, nb.x + nb.w * 0.68f, y + S(6), nb.w * 0.29f, rs(F_TXS, F_TXSI, S(15)), C_INK2, 1); }
+            d_text(F_TXSI, nb.x + nb.w * 0.68f, nb.y + nb.h - S(30), "click the label for its etude →", MOTIF_COL[mm]);
+        } else {
+            /* the coda: the one picture behind both chapters */
+            float x = nb.x + S(24), y = nb.y + S(18), px = S(22);
+            d_text_spaced(F_CAP, x, y, "THE BIG PICTURE IN THREE LINES", S(1.4f), C_MUTED);
+            y += S(30);
+            {   const char *L[3] = {
+                    "f(x+ct)-f(-x+ct)\\;=\\;2K\\,\\col{1}{\\sin\\delta}\\,\\col{1}{\\cos\\gamma}\\qquad\\text{the string (1.18): nodes in space}",
+                    "\\sin\\alpha+\\sin\\beta\\;=\\;2\\,\\col{1}{\\cos\\delta}\\,\\col{1}{\\sin\\gamma}\\qquad\\text{beats (2.1): swells in time}",
+                    "e^{i\\alpha}+e^{i\\beta}\\;=\\;\\col{2}{e^{i\\gamma}}\\cdot\\col{3}{\\left(e^{i\\delta}+e^{-i\\delta}\\right)}\\qquad\\text{the one picture: a turn times a mirror pair}" };
+                int k;
+                for (k = 0; k < 3; k++) { float fp = tex_fit(L[k], px, nb.w * 0.64f); TexBox b = tex_measure(L[k], fp); tex_draw(L[k], x, y + b.asc, fp, C_INK); y += b.asc + b.desc + S(16); }
+            }
+            rich("[1|$\\gamma$] is the middle angle and [1|$\\delta$] the half-gap: *Split*. Factoring out [2|$e^{i\\gamma}$] is a *Turn*; a vector plus its [3|mirror image] is real. The nails of Chapter 1 are the same mirrors, and two of them make the *Loop* that makes a tone.",
+                 x, y + S(2), nb.w * 0.64f, rs(F_TXS, F_TXSI, S(15)), C_INK2, 1);
+            {   float cx = nb.x + nb.w * 0.70f, cy = nb.y + S(18);
+                d_text_spaced(F_CAP, cx, cy, "HOW TO USE IT", S(1.4f), C_MUTED); cy += S(26);
+                cy += font_wrap(F_TXS, cx, cy, nb.w * 0.27f, "Pick any column: its derivation is a short phrase of moves. In Perform mode you name each move before it is shown.", C_INK2, 1) + S(8);
+                font_wrap(F_TXS, cx, cy, nb.w * 0.27f, "Every cited result is a link, so you can follow any formula back to the ground.", C_INK2, 1);
+            }
+        }
+    }
+}
+
+/* =========================================================== motif keys */
+static int keyboard(Rect r, int mode_perform, int correct, int *pressed) {
+    int m, hit = -1; float kw = (r.w - S(8) * (MO_COUNT - 1)) / MO_COUNT;
+    *pressed = -1;
+    for (m = 0; m < MO_COUNT; m++) {
+        int k = m == MO_GROUND ? 0 : m;       /* key digit: 0 ground, 1..7 motifs */
+        float x = r.x + m * (kw + S(8));
+        Rect b = rect(x, r.y, kw, r.h); int hv = hover(b);
+        float shake = (A.shake > 0 && A.shake_key == m) ? sinf(A.shake * 60) * A.shake * S(10) : 0;
+        Color c = MOTIF_COL[m];
+        float fl = (A.flash > 0 && A.flash_key == m) ? A.flash : 0;
+        b.x += shake;
+        d_rrect(b, S(8), fl > 0 ? cmix(C_CARD, c, 0.35f * fl) : hv ? cmix(C_CARD, c, 0.08f) : C_CARD);
+        d_rrect_line(b, S(8), hv ? S(1.6f) : 1, calpha(c, hv ? 0.9f : 0.35f));
+        if (mode_perform && correct == m && A.hint_shown >= 2) d_rrect_line(inset(b, -S(3)), S(10), S(2), calpha(c, 0.5f + 0.5f * sinf((float)A.t * 6)));
+        if (A.wrong_key == m && A.shake <= 0 && mode_perform) d_line(b.x + S(10), b.y + b.h - S(6), b.x + b.w - S(10), b.y + b.h - S(6), S(1.5f), calpha(MOTIF_COL[MO_MIRROR], 0.5f));
+        motif_glyph(m, b.x + S(26), b.y + b.h / 2, S(26), S(2), c);
+        d_text(F_UIB, b.x + S(48), b.y + S(12), m == MO_GROUND ? "Ground" : MOTIFS[m].name, cmix(c, C_INK, 0.3f));
+        {   char kb[4]; snprintf(kb, sizeof kb, "%d", k); d_text_right(F_XS, b.x + b.w - S(10), b.y + S(10), kb, C_FAINT); }
+        {   static const char *tag[MO_COUNT] = { "what is given", "middle \u00b1 half-gap", "rotate and stretch", "reflect; pair with image",
+                                                  "once around", "freeze one variable", "Re and Im apart", "compare with length" };
+            if (font_width(F_XS, tag[m], -1) < b.w - S(56)) d_text(F_XS, b.x + S(48), b.y + S(36), tag[m], C_MUTED); }
+        if (click(b)) *pressed = m;
+        if (hv) hit = m;
+    }
+    {   int i; for (i = 0; i < A.in.ntext; i++) { unsigned ch = A.in.text[i]; if (ch >= '0' && ch <= '7') *pressed = ch == '0' ? MO_GROUND : (int)(ch - '0'); } }
+    return hit;
+}
+
+/* =========================================================== piece view */
+static float draw_step(const Piece *pc, int p, int i, float x, float y, float w, int draw, int *ref_click) {
+    const Step *s = &pc->steps[i];
+    int revealed = !A.perform || i < g_revealed[p];
+    int current = A.perform && i == g_revealed[p];
+    float y0 = y, tx = x + S(42), tw = w - S(46);
+    Color mc = MOTIF_COL[s->motif];
+    *ref_click = 0;
+    if (!revealed && !current) {
+        if (draw) {
+            d_ring(x + S(16), y + S(14), S(12), 1, C_HAIR);
+            d_dash(tx, y + S(16), tx + tw * 0.6f, y + S(16), 1, S(4), S(5), C_HAIR);
+        }
+        return S(36);
+    }
+    y += S(4);
+    if (current) {
+        float h;
+        if (draw) {
+            d_ring(x + S(16), y + S(12), S(13), S(1.6f), calpha(C_INK, 0.5f + 0.3f * sinf((float)A.t * 3)));
+            d_text_center(F_UIB, x + S(16), y + S(12) - font_line(F_UIB) / 2, "?", C_INK);
+        }
+        h = rich(s->cue, tx, y, tw, rs(F_TX, F_TXI, S(17)), C_INK, draw);
+        y += h + S(6);
+        if (draw) d_text(F_TXSI, tx, y, "Which move? Press its key below (0–7), or Enter to reveal.", C_MUTED);
+        y += S(22);
+        if (A.hint_shown >= 1 && A.wrong_key >= 0) {
+            char buf[512];
+            snprintf(buf, sizeof buf, "Not *%s*: that would %s. Ask instead: %s", A.wrong_key == MO_GROUND ? "Ground" : MOTIFS[A.wrong_key].name, MOTIFS[A.wrong_key].verb, MOTIFS[s->motif].question);
+            y += rich(buf, tx, y, tw, rs(F_TXS, F_TXSI, S(15)), MOTIF_COL[MO_MIRROR], draw) + S(6);
+        }
+        return y - y0 + S(10);
+    }
+    if (draw) {
+        d_circle(x + S(16), y + S(14), S(14), calpha(mc, 0.12f));
+        motif_glyph(s->motif, x + S(16), y + S(14), S(20), S(1.6f), mc);
+    }
+    {   float h = rich(s->cue, tx, y, tw, rs(F_TXS, F_TXSI, S(14.5f)), C_MUTED, draw);
+        y += h + S(4); }
+    {   float px = tex_fit(s->tex, S(21), tw); TexBox b = tex_measure(s->tex, px);
+        if (draw) tex_draw(s->tex, tx, y + b.asc + S(2), px, C_INK);
+        y += b.asc + b.desc + S(10); }
+    if (s->why) y += rich(s->why, tx, y, tw, rs(F_TXS, F_TXSI, S(14.5f)), C_INK2, draw) + S(4);
+    {   int q = step_ref(p, i);
+        if (q >= 0) {
+            char buf[80]; int hit = 0;
+            snprintf(buf, sizeof buf, "uses %s →", short_label(q));
+            if (draw) chip(tx, y + S(2), buf, MOTIF_COL[MO_TURN], 0, &hit);
+            if (hit) *ref_click = q + 1;
+            y += S(30);
+        }
+    }
+    return y - y0 + S(12);
+}
+
+/* every ancestor of p, deepest first: the piece built from scratch */
+static int lineage(int p, int *out, int cap) {
+    static int mark[160]; int stack[160], sp = 0, n = 0, k, i;
+    memset(mark, 0, sizeof mark);
+    /* depth-first post-order over needs and step refs */
+    {   int it[160]; memset(it, 0, sizeof it);
+        stack[sp++] = p; mark[p] = 1;
+        while (sp > 0) {
+            int c = stack[sp - 1], next = -1;
+            while (it[c] < 6 + 12 && next < 0) {
+                int j = it[c]++, q = j < 6 ? piece_need(c, j) : step_ref(c, j - 6);
+                if (q >= 0 && !mark[q]) next = q;
+            }
+            if (next >= 0) { mark[next] = 1; stack[sp++] = next; }
+            else { sp--; if (c != p && n < cap) out[n++] = c; }
+        }
+    }
+    (void)k; (void)i;
+    return n;
+}
+
+static void piece_view(Rect r) {
+    int p = CUR, i, pressed, hit, refc;
+    const Piece *pc;
+    Rect stage_r, right, kb;
+    float x, y, w;
+    if (p < 0) { A.view = V_SCORE; return; }
+    pc = &PIECES[p];
+    kb = rect(r.x + S(24), r.y + r.h - S(86), r.w - S(48), S(68));
+    stage_r = rect(r.x + S(24), r.y + S(20), r.w * 0.5f - S(30), r.h - S(130));
+    right = rect(stage_r.x + stage_r.w + S(28), r.y, r.x + r.w - (stage_r.x + stage_r.w + S(28)) - S(24), r.h - S(106));
+
+    /* stage */
+    d_rrect(stage_r, S(10), C_CARD); d_rrect_line(stage_r, S(10), 1, C_HAIR);
+    A.st.sound = !synth_muted();
+    if (stage_draw(&A.st, inset(stage_r, S(2)), &A.in, A.dt, 1)) A.want_hand = 1;
+
+    /* right column, scrolled */
+    clip_push(right);
+    x = right.x; w = right.w; y = right.y + S(20) - A.scroll;
+    {   char head[160];
+        snprintf(head, sizeof head, "%s%s   ·   %s   ·   §%s %s", kind_name(pc->kind), pc->essential ? " ♣" : "", pc->label, SECTIONS[pc->section].num, SECTIONS[pc->section].title);
+        d_text_spaced(F_CAP, x, y, head, S(1.2f), C_MUTED); y += S(20);
+        font_draw(F_H2, x, y, pc->name, -1, C_INK); y += S(42);
+        {   float px = tex_fit(pc->statement, S(27), w - S(10)); TexBox b = tex_measure(pc->statement, px);
+            d_rrect(rect(x - S(10), y - S(6), w + S(10), b.asc + b.desc + S(22)), S(8), calpha(C_WASH, 0.6f));
+            tex_draw(pc->statement, x + S(4), y + S(4) + b.asc, px, C_INK); y += b.asc + b.desc + S(30); }
+        y += rich(pc->gist, x, y, w, rs(F_TX, F_TXI, S(17)), C_INK2, 1) + S(14);
+    }
+    /* from scratch: the lineage, folded by default */
+    {   int lin[96], n = lineage(p, lin, 96), k, ng = 0;
+        for (k = 0; k < n; k++) if (PIECES[lin[k]].kind == K_GROUND || PIECES[lin[k]].kind == K_DEF) ng++;
+        if (n > 0) {
+            char buf[160]; Rect tb;
+            snprintf(buf, sizeof buf, "%s  built on %d earlier piece%s, down to %d given fact%s", A.lineage_open ? "\u25be" : "\u25b8", n, n == 1 ? "" : "s", ng, ng == 1 ? "" : "s");
+            tb = rect(x - S(4), y - S(2), font_width(F_S, buf, -1) + S(12), S(22));
+            if (hover(tb)) d_rrect(tb, S(5), C_WASH);
+            d_text(F_S, x, y, buf, C_MUTED);
+            if (click(tb)) A.lineage_open = !A.lineage_open;
+            y += S(26);
+            if (A.lineage_open) {
+                float xx = x, yy = y;
+                for (k = 0; k < n; k++) {
+                    const char *lb = short_label(lin[k]); float cw = font_width(F_S, lb, -1) + S(16);
+                    int h2 = 0, gr = PIECES[lin[k]].kind == K_GROUND || PIECES[lin[k]].kind == K_DEF;
+                    if (xx + cw > x + w) { xx = x; yy += S(28); }
+                    chip(xx, yy, lb, gr ? MOTIF_COL[MO_GROUND] : MOTIF_COL[MO_TURN], gr, &h2);
+                    if (h2) { open_piece(lin[k], 1); clip_pop(); return; }
+                    xx += cw + S(6);
+                }
+                y = yy + S(34);
+                d_text(F_XS, x, y - S(4), "deepest first; filled chips are the ground", C_FAINT); y += S(16);
+            }
+        }
+    }
+    d_line(x, y, x + w, y, 1, C_HAIR); y += S(16);
+
+    if (!pc->nsteps) {
+        motif_glyph(MO_GROUND, x + S(16), y + S(14), S(22), S(1.8f), MOTIF_COL[MO_GROUND]);
+        rich(pc->kind == K_DEF ? "A *definition*: nothing to derive. It is part of the ground the other pieces stand on." :
+             "*Ground*: taken as given. Every derivation rests on a few such facts, the drone under the music.",
+             x + S(42), y + S(4), w - S(42), rs(F_TX, F_TXI, S(17)), C_INK2, 1);
+        y += S(70);
+    } else {
+        for (i = 0; i < pc->nsteps; i++) {
+            float h = draw_step(pc, p, i, x, y, w, 0, &refc);
+            Rect sr = rect(x - S(8), y, w + S(16), h - S(4));
+            int revealed = !A.perform || i < g_revealed[p];
+            if (revealed && i == A.sel_step) { d_rrect(sr, S(8), calpha(MOTIF_COL[pc->steps[i].motif], 0.07f)); d_rect(rect(sr.x, sr.y + S(6), S(3), sr.h - S(12)), MOTIF_COL[pc->steps[i].motif]); }
+            draw_step(pc, p, i, x, y, w, 1, &refc);
+            if (refc) { open_piece(refc - 1, 1); clip_pop(); return; }
+            if (revealed && click(sr)) { A.sel_step = i; stage_for_piece(); }
+            y += h;
+            if (A.perform && i == g_revealed[p]) break;
+        }
+        if (A.perform && g_revealed[p] < pc->nsteps) {
+            for (i = g_revealed[p] + 1; i < pc->nsteps; i++) { d_ring(x + S(16), y + S(14), S(12), 1, C_HAIR); d_dash(x + S(42), y + S(16), x + w * 0.55f, y + S(16), 1, S(4), S(5), C_HAIR); y += S(34); }
+        }
+        if (!A.perform || g_revealed[p] >= pc->nsteps) {   /* coda: the chord and its relatives */
+            int m, k, n = 0, same[24], ns = 0;
+            y += S(6);
+            d_line(x, y, x + w, y, 1, C_HAIR); y += S(14);
+            d_text_spaced(F_CAP, x, y, "THE CHORD OF THIS PIECE", S(1.3f), C_MUTED); y += S(22);
+            for (m = 0; m < MO_COUNT; m++) if (PIECE_MOTIFS[p][m] && pc->nsteps) {
+                char t[40]; snprintf(t, sizeof t, "%s ×%d", m == MO_GROUND ? "Ground" : MOTIFS[m].name, PIECE_MOTIFS[p][m]);
+                motif_glyph(m, x + S(9) + n * S(124), y + S(9), S(16), S(1.4f), MOTIF_COL[m]);
+                d_text(F_S, x + S(22) + n * S(124), y + S(1), t, cmix(MOTIF_COL[m], C_INK, 0.3f));
+                n++;
+                if (n == 4 && m < MO_COUNT - 1) { n = 0; y += S(24); }
+            }
+            y += S(30);
+            /* pieces that share at least the same set of non-ground motifs */
+            for (k = 0; k < NPIECES && ns < 24; k++) {
+                int ok = k != p && PIECES[k].nsteps > 0, any = 0;
+                for (m = 1; m < MO_COUNT && ok; m++) { if ((PIECE_MOTIFS[k][m] > 0) != (PIECE_MOTIFS[p][m] > 0)) ok = 0; if (PIECE_MOTIFS[p][m]) any = 1; }
+                if (ok && any && PIECES[k].steps != pc->steps) same[ns++] = k;
+            }
+            if (ns) {
+                float xx = x + S(128);
+                d_text(F_XS, x, y + S(4), "same chord as", C_MUTED);
+                for (k = 0; k < ns; k++) { int h2 = 0; float cw = font_width(F_S, short_label(same[k]), -1) + S(16);
+                    if (xx + cw > x + w) { xx = x + S(128); y += S(28); }
+                    chip(xx, y, short_label(same[k]), MOTIF_COL[MO_LOOP], 0, &h2); if (h2) { open_piece(same[k], 1); clip_pop(); return; } xx += cw + S(6); }
+                y += S(36);
+            }
+            {   int users[64], nu = piece_users(p, users, 64);
+                if (nu) {
+                    float xx = x + S(128);
+                    d_text(F_XS, x, y + S(4), "used later by", C_MUTED);
+                    for (k = 0; k < nu; k++) { int h2 = 0; float cw = font_width(F_S, short_label(users[k]), -1) + S(16);
+                        if (xx + cw > x + w) { xx = x + S(128); y += S(28); }
+                        chip(xx, y, short_label(users[k]), MOTIF_COL[MO_TURN], 0, &h2); if (h2) { open_piece(users[k], 1); clip_pop(); return; } xx += cw + S(6); }
+                    y += S(36);
+                }
+            }
+        }
+    }
+    if (pc->echo && (!A.perform || g_revealed[p] >= pc->nsteps || !pc->nsteps)) {
+        float h = rich(pc->echo, x + S(42), y + S(10), w - S(52), rs(F_TXS, F_TXSI, S(15)), C_INK2, 0);
+        d_rrect(rect(x - S(4), y, w + S(4), h + S(20)), S(8), calpha(MOTIF_COL[MO_LOOP], 0.07f));
+        d_text(F_H3, x + S(12), y + S(6), "♪", MOTIF_COL[MO_LOOP]);
+        rich(pc->echo, x + S(42), y + S(10), w - S(52), rs(F_TXS, F_TXSI, S(15)), C_INK2, 1);
+        y += h + S(30);
+    }
+    if (pc->note) {
+        float h = rich(pc->note, x + S(42), y + S(10), w - S(52), rs(F_TXS, F_TXSI, S(15)), C_INK2, 0);
+        int err = !strncmp(pc->note, "Erratum", 7) || !strncmp(pc->note, "Typo", 4);
+        Color c = err ? MOTIF_COL[MO_MIRROR] : MOTIF_COL[MO_GROUND];
+        d_rrect(rect(x - S(4), y, w + S(4), h + S(20)), S(8), calpha(c, 0.07f));
+        d_text(F_H3, x + S(12), y + S(4), err ? "*" : "§", c);
+        rich(pc->note, x + S(42), y + S(10), w - S(52), rs(F_TXS, F_TXSI, S(15)), C_INK2, 1);
+        y += h + S(30);
+    }
+    A.content_h = y + A.scroll - right.y + S(40);
+    clip_pop();
+    if (A.content_h > right.h) {   /* scroll indicator */
+        float th = right.h * right.h / A.content_h, ty = right.y + (right.h - th) * (A.scroll / (A.content_h - right.h));
+        d_rrect(rect(right.x + right.w + S(10), ty, S(3), th), S(2), C_HAIR);
+    }
+    if (hover(right) && A.in.wheel != 0) A.scroll_target -= A.in.wheel * S(70);
+    {   float mx = A.content_h - right.h; if (mx < 0) mx = 0;
+        if (A.scroll_target > mx) A.scroll_target = mx; if (A.scroll_target < 0) A.scroll_target = 0; }
+    A.scroll += (A.scroll_target - A.scroll) * 0.25f;
+
+    /* keyboard */
+    {   int correct = (A.perform && pc->nsteps && g_revealed[p] < pc->nsteps) ? pc->steps[g_revealed[p]].motif : -1;
+        hit = keyboard(kb, A.perform, correct, &pressed);
+        if (hit >= 0) {
+            const char *q = MOTIFS[hit].question; float tw = font_width(F_TXSI, q, -1) + S(20);
+            Rect tip = rect(A.in.mx - tw / 2, kb.y - S(36), tw, S(28));
+            if (tip.x < r.x + S(8)) tip.x = r.x + S(8); if (tip.x + tip.w > r.x + r.w - S(8)) tip.x = r.x + r.w - S(8) - tip.w;
+            d_rrect(tip, S(6), C_INK); d_text(F_TXSI, tip.x + S(10), tip.y + (tip.h - font_line(F_TXSI)) / 2, q, C_PAPER);
+        }
+        if (pressed >= 0) {
+            if (correct >= 0) {
+                if (pressed == correct) {
+                    g_revealed[p]++; A.sel_step = g_revealed[p] - 1; A.flash_key = pressed; A.flash = 1; A.hint_shown = 0; A.wrong_key = -1;
+                    play_motif(pressed, 0.16f); stage_for_piece();
+                    if (g_revealed[p] >= pc->nsteps) play_chord(p);
+                    {   float target = A.content_h - right.h * 0.5f; if (target > A.scroll_target) A.scroll_target = target; }
+                } else {
+                    A.shake = 0.35f; A.shake_key = pressed; A.wrong_key = pressed; A.hint_shown++; g_wrong[p]++;
+                    synth_pluck(110.0f * MOTIFS[pressed].harmonic * 1.06f, 0.08f, 0.4f);
+                }
+            } else {
+                /* read mode: jump to the next step that uses this motif */
+                int k, start = A.sel_step;
+                for (k = 1; k <= pc->nsteps; k++) { int s2 = (start + k) % (pc->nsteps ? pc->nsteps : 1); if (pc->nsteps && pc->steps[s2].motif == pressed) { A.sel_step = s2; stage_for_piece(); break; } }
+                play_motif(pressed, 0.12f);
+            }
+        }
+        if (A.perform && correct >= 0 && A.in.key_pressed[KEY_ENTER]) {
+            A.flash_key = correct; A.flash = 1; g_revealed[p]++; A.sel_step = g_revealed[p] - 1; A.hint_shown = 0; A.wrong_key = -1;
+            play_motif(correct, 0.12f); stage_for_piece();
+        }
+    }
+    if (!A.perform && pc->nsteps) {
+        if (A.in.key_pressed[KEY_DOWN] || A.in.key_pressed[KEY_RIGHT] || A.in.key_pressed[KEY_SPACE]) { if (A.sel_step < pc->nsteps - 1) { A.sel_step++; stage_for_piece(); } }
+        if (A.in.key_pressed[KEY_UP] || A.in.key_pressed[KEY_LEFT]) { if (A.sel_step > 0) { A.sel_step--; stage_for_piece(); } }
+    }
+    if (A.perform && pc->nsteps && (A.in.key_pressed[KEY_LEFT] || A.in.key_pressed[KEY_RIGHT])) {
+        int lim = g_revealed[p] - 1;
+        if (A.in.key_pressed[KEY_LEFT] && A.sel_step > 0) A.sel_step--;
+        if (A.in.key_pressed[KEY_RIGHT] && A.sel_step < lim) A.sel_step++;
+        stage_for_piece();
+    }
+}
+
+/* ============================================================== etudes */
+static void etude_view(Rect r) {
+    int m, i, k;
+    Rect list = rect(r.x + S(24), r.y + S(20), S(250), r.h - S(40));
+    Rect stage_r = rect(list.x + list.w + S(24), r.y + S(20), (r.w - list.w - S(96)) * 0.55f, r.h - S(40));
+    Rect right = rect(stage_r.x + stage_r.w + S(24), r.y + S(20), r.x + r.w - (stage_r.x + stage_r.w + S(24)) - S(24), r.h - S(40));
+    float y = list.y;
+    for (m = 0; m < MO_COUNT; m++) {
+        int mm = m == 0 ? MO_GROUND : m;
+        Rect b = rect(list.x, y, list.w, S(58)); int on = A.etude == mm, hv = hover(b);
+        if (on || hv) d_rrect(b, S(8), on ? calpha(MOTIF_COL[mm], 0.12f) : C_WASH);
+        motif_glyph(mm, b.x + S(26), b.y + b.h / 2, S(28), S(2), MOTIF_COL[mm]);
+        d_text(F_UIB, b.x + S(54), b.y + S(10), mm == MO_GROUND ? "Ground" : MOTIFS[mm].name, cmix(MOTIF_COL[mm], C_INK, 0.3f));
+        {   int cnt = 0; char t[32]; for (i = 0; i < NPIECES; i++) for (k = 0; k < PIECES[i].nsteps; k++) if (PIECES[i].steps[k].motif == mm) cnt++;
+            snprintf(t, sizeof t, "%d moves", cnt); d_text(F_XS, b.x + S(54), b.y + S(32), t, C_MUTED); }
+        if (click(b)) { A.etude = mm; A.escroll = A.escroll_target = 0; stage_set(&A.st, MOTIFS[mm].scene, MOTIFS[mm].p); play_motif(mm, 0.14f); }
+        y += S(64);
+    }
+    d_rrect(stage_r, S(10), C_CARD); d_rrect_line(stage_r, S(10), 1, C_HAIR);
+    A.st.sound = !synth_muted();
+    if (stage_draw(&A.st, inset(stage_r, S(2)), &A.in, A.dt, 1)) A.want_hand = 1;
+
+    clip_push(right);
+    {   const MotifInfo *mi = &MOTIFS[A.etude]; float x = right.x, w = right.w;
+        y = right.y + S(6) - A.escroll;
+        motif_glyph(A.etude, x + S(20), y + S(22), S(36), S(2.6f), MOTIF_COL[A.etude]);
+        font_draw(F_H1I, x + S(52), y - S(8), A.etude == MO_GROUND ? "Ground" : mi->name, -1, MOTIF_COL[A.etude]);
+        y += S(56);
+        {   char buf[300]; snprintf(buf, sizeof buf, "to %s", mi->verb); y += rich(buf, x, y, w, rs(F_TXI, F_TXI, S(17)), C_INK2, 1) + S(12); }
+        y += rich(mi->essence, x, y, w, rs(F_TX, F_TXI, S(17)), C_INK, 1) + S(14);
+        d_rrect(rect(x - S(4), y, w + S(4), S(10) + rich(mi->question, x + S(12), y + S(8), w - S(20), rs(F_TXI, F_TXI, S(17)), C_INK, 0) + S(10)), S(8), calpha(MOTIF_COL[A.etude], 0.08f));
+        y += rich(mi->question, x + S(12), y + S(8), w - S(20), rs(F_TXI, F_TXI, S(17)), C_INK, 1) + S(34);
+        d_text_spaced(F_CAP, x, y, "EVERY TIME IT SOUNDS", S(1.3f), C_MUTED); y += S(22);
+        {   int ch;
+            for (ch = 1; ch <= 2; ch++) {
+                float xx = x; int any = 0;
+                for (i = 0; i < NPIECES; i++) {
+                    if (PIECES[i].chapter != ch) continue;
+                    for (k = 0; k < PIECES[i].nsteps; k++) if (PIECES[i].steps[k].motif == A.etude) {
+                        char lb[48]; float cw; int h2 = 0;
+                        if (!any) { d_text(F_XS, x, y, ch == 1 ? "Chapter 1" : "Chapter 2", C_MUTED); y += S(18); any = 1; }
+                        snprintf(lb, sizeof lb, "%s · %d", short_label(i), k + 1);
+                        cw = font_width(F_S, lb, -1) + S(16);
+                        if (xx + cw > x + w) { xx = x; y += S(28); }
+                        chip(xx, y, lb, MOTIF_COL[A.etude], PIECES[i].kind == K_PROBLEM ? 0 : 1, &h2);
+                        if (h2) { clip_pop(); A.perform = 0; open_piece(i, 0); A.sel_step = k; stage_for_piece(); return; }
+                        xx += cw + S(6);
+                    }
+                }
+                if (any) y += S(38);
+            }
+            if (A.etude == MO_GROUND) {
+                float xx = x;
+                d_text(F_XS, x, y, "the given facts", C_MUTED); y += S(18);
+                for (i = 0; i < NPIECES; i++) if (PIECES[i].kind == K_GROUND || PIECES[i].kind == K_DEF) {
+                    int h2 = 0; float cw = font_width(F_S, short_label(i), -1) + S(16);
+                    if (xx + cw > x + w) { xx = x; y += S(28); }
+                    chip(xx, y, short_label(i), MOTIF_COL[MO_GROUND], 1, &h2);
+                    if (h2) { clip_pop(); open_piece(i, 0); return; }
+                    xx += cw + S(6);
+                }
+                y += S(38);
+            }
+        }
+        A.econtent_h = y + A.escroll - right.y;
+    }
+    clip_pop();
+    if (hover(right) && A.in.wheel != 0) A.escroll_target -= A.in.wheel * S(70);
+    {   float mx = A.econtent_h - right.h; if (mx < 0) mx = 0; if (A.escroll_target > mx) A.escroll_target = mx; if (A.escroll_target < 0) A.escroll_target = 0; }
+    A.escroll += (A.escroll_target - A.escroll) * 0.25f;
+}
+
+/* ================================================================= help */
+static void help_overlay(Rect r) {
+    Rect b = rect(r.x + r.w / 2 - S(330), r.y + S(60), S(660), S(470));
+    float x = b.x + S(30), y = b.y + S(26);
+    static const char *rows[][2] = {
+        { "Score", "every result and exercise of Chapters 1–2 as a column; every motif as a staff" },
+        { "hover / click", "read a column / derive it; hover a staff label for its motif, click for its etude" },
+        { "Space", "play the score (each column sounds its motifs as harmonics of a string)" },
+        { "1 – 7", "highlight one motif across the whole score" },
+        { "Perform", "name each move before it is shown: keys 0–7 (0 is Ground), Enter reveals" },
+        { "Read", "all steps shown; arrows walk through them; a motif key jumps to its next use" },
+        { "uses … →", "open the result a step depends on; follow any formula back to the ground" },
+        { "Backspace / Esc", "back along the breadcrumb, then to the score" },
+        { "Tab", "switch Perform and Read" },
+        { "Stage", "drag the dots, slide the slider; sound plays beats and harmonics" },
+    };
+    int i;
+    d_rect(r, calpha(C_PAPER, 0.75f));
+    d_rrect(b, S(12), C_CARD); d_rrect_line(b, S(12), 1, C_HAIR);
+    font_draw(F_H2I, x, y, "How to read this score", -1, C_INK); y += S(50);
+    for (i = 0; i < 10; i++) {
+        d_text(F_UIB, x, y, rows[i][0], C_INK);
+        y += font_wrap(F_TXS, x + S(160), y, b.w - S(220), rows[i][1], C_INK2, 1) + S(10);
+    }
+    y += S(6);
+    font_wrap(F_TXSI, x, y, b.w - S(60), "Each motif sounds one harmonic of the string from Chapter 1: Ground is the fundamental, Split the 2nd harmonic, and so on up to Shadow, the 8th.", C_MUTED, 1);
+    if (A.clicked && !A.consumed) { A.help = 0; A.consumed = 1; }
+}
+
+/* ============================================================= progress
+   How far you have performed each piece, kept in a small text file. */
+static void progress_path(char *out, int cap) {
+    const char *d = getenv("APPDATA");
+#ifdef _WIN32
+    if (d) { snprintf(out, (size_t)cap, "%s\\leitmotif-progress.txt", d); return; }
+#else
+    d = getenv("HOME");
+    if (d) { snprintf(out, (size_t)cap, "%s/.leitmotif-progress", d); return; }
+#endif
+    snprintf(out, (size_t)cap, "leitmotif-progress.txt");
+}
+static void progress_load(void) {
+    char path[600], id[64]; int n; FILE *f;
+    progress_path(path, sizeof path);
+    f = fopen(path, "r");
+    if (!f) return;
+    while (fscanf(f, "%63s %d", id, &n) == 2) {
+        int p = piece_find(id);
+        if (p >= 0 && n >= 0 && n <= PIECES[p].nsteps) g_revealed[p] = n;
+    }
+    fclose(f);
+}
+static void progress_save(void) {
+    char path[600]; int i; FILE *f;
+    progress_path(path, sizeof path);
+    f = fopen(path, "w");
+    if (!f) return;
+    for (i = 0; i < NPIECES; i++) if (g_revealed[i] > 0) fprintf(f, "%s %d\n", PIECES[i].id, g_revealed[i]);
+    fclose(f);
+}
+
+/* ============================================================ self-test */
+static void screenshot(const char *name) {
+    int w = A.in.win_w, h = A.in.win_h, y; char path[512]; FILE *f;
+    unsigned char *px = (unsigned char *)mem_alloc((size_t)w * h * 3);
+    glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, px);
+    snprintf(path, sizeof path, "%s/%s.ppm", A.shot_dir, name);
+    f = fopen(path, "wb");
+    if (f) { fprintf(f, "P6\n%d %d\n255\n", w, h); for (y = h - 1; y >= 0; y--) fwrite(px + (size_t)y * w * 3, 1, (size_t)w * 3, f); fclose(f); }
+    mem_free(px);
+}
+
+static int g_fail;
+static void check_content(void) {
+    int i, k, bad = content_init();
+    if (bad) { printf("FAIL: %d unresolved references\n", bad); g_fail = 1; }
+    tex_unknown = 0;
+    for (i = 0; i < NPIECES; i++) {
+        const Piece *pc = &PIECES[i]; int before = tex_unknown;
+        tex_measure(pc->statement, 20);
+        for (k = 0; k < pc->nsteps; k++) tex_measure(pc->steps[k].tex, 20);
+        if (pc->nsteps > 12) { printf("FAIL: %s has more than 12 steps\n", pc->id); g_fail = 1; }
+        if (tex_unknown != before) { printf("FAIL: unknown TeX command in %s\n", pc->id); g_fail = 1; }
+        for (k = i + 1; k < NPIECES; k++) if (!strcmp(pc->id, PIECES[k].id)) { printf("FAIL: duplicate id %s\n", pc->id); g_fail = 1; }
+    }
+    {   int nsteps = 0, cnt[MO_COUNT] = {0}; for (i = 0; i < NPIECES; i++) for (k = 0; k < PIECES[i].nsteps; k++) { nsteps++; cnt[PIECES[i].steps[k].motif]++; }
+        printf("pieces=%d steps=%d  ground=%d split=%d turn=%d mirror=%d loop=%d hold=%d lanes=%d shadow=%d\n", NPIECES, nsteps,
+               cnt[0], cnt[1], cnt[2], cnt[3], cnt[4], cnt[5], cnt[6], cnt[7]); }
+}
+
+/* drive every view and scene; returns a screenshot name for this frame or NULL */
+static const char *selftest_script(int f) {
+    static char name[64];
+    int phase = f / 8, sub = f % 8;
+    A.in.mx = -100; A.in.my = -100;
+    if (phase == 0) { if (sub == 7) return "01_score"; return NULL; }
+    if (phase == 1) { int c = piece_find("1.13"); A.in.mx = (int)g_cols[c].x; A.in.my = (int)g_staff_y[3]; if (sub == 7) return "02_score_hover"; return NULL; }
+    if (phase == 2) { A.in.mx = (int)S(60); A.in.my = (int)g_staff_y[2]; if (sub == 7) return "03_score_motif"; return NULL; }
+    if (phase == 3) { if (sub == 0) { A.perform = 1; open_piece(piece_find("2.1"), 0); } if (sub == 7) return "04_piece_perform"; return NULL; }
+    if (phase == 4) { if (sub == 0) { A.in.ntext = 1; A.in.text[0] = '3'; } if (sub == 7) return "05_piece_wrong"; return NULL; }
+    if (phase == 5) { if (sub == 0) { A.in.ntext = 1; A.in.text[0] = '6'; } if (sub == 2) { A.in.ntext = 1; A.in.text[0] = '1'; } if (sub == 4) { A.in.ntext = 1; A.in.text[0] = '2'; } if (sub == 7) return "06_piece_progress"; return NULL; }
+    if (phase == 6) { if (sub == 0) { A.perform = 0; open_piece(piece_find("1.13"), 0); A.sel_step = 2; stage_for_piece(); } if (sub == 7) return "07_piece_read"; return NULL; }
+    if (phase == 7) { if (sub == 0) { A.view = V_ETUDE; A.etude = MO_MIRROR; stage_set(&A.st, MOTIFS[A.etude].scene, MOTIFS[A.etude].p); } if (sub == 7) return "08_etude"; return NULL; }
+    if (phase == 8) { if (sub == 0) { A.help = 1; A.view = V_SCORE; } if (sub == 7) { return "09_help"; } return NULL; }
+    if (phase == 9) { if (sub == 0) A.help = 0; return NULL; }
+    /* then every piece in read mode, each with its last step selected */
+    {   int i = phase - 10;
+        if (i < NPIECES) {
+            if (sub == 0) { A.perform = 0; open_piece(i, 0); A.sel_step = PIECES[i].nsteps ? PIECES[i].nsteps - 1 : -1; stage_for_piece(); }
+            if (sub == 1) A.scroll_target = 0;
+            if (sub == 7) { snprintf(name, sizeof name, "p%02d_%s", i, PIECES[i].id); return name; }
+            return NULL;
+        }
+        i -= NPIECES;
+        if (i < MO_COUNT) {
+            if (sub == 0) { A.view = V_ETUDE; A.etude = i; stage_set(&A.st, MOTIFS[i].scene, MOTIFS[i].p); }
+            if (sub == 7) { snprintf(name, sizeof name, "e%d_%s", i, MOTIFS[i].name); return name; }
+            return NULL;
+        }
+    }
+    A.in.quit = 1;
+    return NULL;
+}
+
+/* =================================================================== main */
+static void frame(void) {
+    Rect top, body;
+    int W = A.in.win_w, H = A.in.win_h;
+    g_s = A.in.dpi;
+    d_begin_frame(W, H);
+    glClearColor(C_PAPER.r, C_PAPER.g, C_PAPER.b, 1); glClear(GL_COLOR_BUFFER_BIT);
+    A.clicked = A.in.pressed[MOUSE_L]; A.consumed = 0; A.want_hand = 0;
+    if (A.help) A.consumed = 0;
+    top = rect(0, 0, (float)W, S(56)); body = rect(0, S(56), (float)W, (float)H - S(56));
+
+    /* keys */
+    if (!A.help) {
+        if (A.in.key_pressed[KEY_ESC] || A.in.key_pressed[KEY_BACKSPACE]) { if (A.view == V_ETUDE) A.view = V_SCORE; else if (A.view == V_PIECE) go_back(); }
+        if (A.in.key_pressed[KEY_TAB] && A.view == V_PIECE) { A.perform = !A.perform; if (CUR >= 0) A.sel_step = A.perform ? g_revealed[CUR] - 1 : (A.sel_step < 0 ? 0 : A.sel_step); stage_for_piece(); }
+        if (A.view == V_SCORE) {
+            int i;
+            if (A.in.key_pressed[KEY_SPACE]) { A.playing = !A.playing; A.play_x = 0; A.play_last = -1; }
+            for (i = 0; i < A.in.ntext; i++) { unsigned c = A.in.text[i];
+                if (c >= '1' && c <= '7') A.sel_filter = A.sel_filter == (int)(c - '0') ? -1 : (int)(c - '0');
+                if (c == '0') A.sel_filter = A.sel_filter == MO_GROUND ? -1 : MO_GROUND;
+                if (c == '?' || c == 'h' || c == 'H') A.help = 1; }
+        } else { int i; for (i = 0; i < A.in.ntext; i++) if (A.in.text[i] == '?') A.help = 1; }
+    } else if (A.in.key_pressed[KEY_ESC]) A.help = 0;
+
+    if (A.playing) {
+        A.play_x += A.dt * 3.2f;
+        if ((int)A.play_x != A.play_last && (int)A.play_x < NPIECES) { A.play_last = (int)A.play_x; play_chord(A.play_last); }
+        if (A.play_x >= NPIECES) A.playing = 0;
+    }
+    if (A.shake > 0) A.shake -= A.dt; if (A.flash > 0) A.flash -= A.dt * 2.5f;
+
+    {   int saved_clicked = A.clicked;
+        if (A.help) A.clicked = 0;       /* the overlay takes clicks */
+        top_bar(top);
+        if (A.view == V_SCORE) score_view(body);
+        else if (A.view == V_PIECE) piece_view(body);
+        else etude_view(body);
+        A.clicked = saved_clicked;
+    }
+    if (A.help) { A.consumed = 0; help_overlay(body); }
+    if (A.view != V_PIECE && A.view != V_ETUDE) synth_release_all();
+    plat_cursor(A.want_hand ? CURSOR_HAND : CURSOR_ARROW);
+}
+
+int app_main(int argc, char **argv) {
+    int i, max_frames = 0; double last;
+    memset(&A, 0, sizeof A);
+    A.hov_col = -1; A.hov_staff = -1; A.sel_filter = -1; A.perform = 1; A.wrong_key = -1; A.etude = MO_SPLIT; A.st.drag = -1; A.st.scene = -1;
+    for (i = 1; i < argc; i++) {
+        if (!strcmp(argv[i], "--selftest")) { A.selftest = 1; A.shot_dir = i + 1 < argc ? argv[++i] : "."; }
+    }
+    if (!plat_init("Leitmotif — Chapters 1–2 as a score", 1440, 900, 1100, 700, &A.msaa)) { fprintf(stderr, "could not open a window\n"); return 1; }
+    plat_poll(&A.in);
+    g_s = A.in.dpi;
+    d_begin_frame(A.in.win_w, A.in.win_h);
+    if (!font_init(A.in.dpi)) { plat_shutdown(); return 1; }
+    tex_set_palette(MOTIF_COL, MO_COUNT);
+    synth_init();
+    if (!A.selftest) plat_audio_open(44100);
+    if (A.selftest) synth_mute(1);
+    check_content();
+    if (!A.selftest) progress_load();
+    if (A.selftest) { printf("msaa=%d dpi=%.2f GL_RENDERER=%s\n", A.msaa, A.in.dpi, (const char *)glGetString(GL_RENDERER)); max_frames = (10 + NPIECES + MO_COUNT) * 8 + 8; }
+    last = plat_time();
+    while (!A.in.quit) {
+        double now = plat_time(); const char *shot = NULL;
+        plat_poll(&A.in);
+        A.dt = (float)(now - last); if (A.dt > 0.1f) A.dt = 0.1f; last = now;
+        if (A.selftest) { A.dt = 1.0f / 30; shot = selftest_script(A.frames); }
+        A.t += A.dt;
+        frame();
+        if (shot) { glFinish(); screenshot(shot); }
+        plat_swap();
+        plat_audio_pump(synth_fill);
+        A.frames++;
+        if (A.selftest && A.frames > max_frames) A.in.quit = 1;
+        if (!A.selftest) { double spent = plat_time() - now; if (spent < 1.0 / 60) plat_sleep(1.0 / 60 - spent); }
+        if (!A.in.focused && !A.selftest) plat_sleep(0.03);
+    }
+    if (!A.selftest) progress_save();
+    plat_audio_close();
+    font_free();
+    plat_shutdown();
+    if (A.selftest) {
+        printf("frames=%d live_blocks=%ld peak_bytes=%ld\n", A.frames, mem_live_blocks(), mem_peak_bytes());
+        if (mem_live_blocks() != 0) { printf("FAIL: leaked blocks\n"); return 2; }
+        if (g_fail) return 3;
+        printf("selftest OK\n");
+    }
+    return 0;
+}
