@@ -236,5 +236,23 @@ void plat_audio_close(void) {
     if (g_alsa) { dlclose(g_alsa); g_alsa = NULL; }
 }
 
-int main(int argc, char **argv) { return app_main(argc, argv); }
+#include <stdarg.h>
+static FILE *g_log;
+const char *plat_log_path(void) { return "/tmp/leitmotif-log.txt"; }
+void plat_log(const char *fmt, ...) {
+    va_list ap;
+    if (!g_log) return;
+    va_start(ap, fmt); vfprintf(g_log, fmt, ap); va_end(ap);
+    fputc('\n', g_log); fflush(g_log);
+}
+void plat_fatal(const char *msg) { plat_log("FATAL: %s", msg); fprintf(stderr, "%s\n", msg); }
+
+int main(int argc, char **argv) {
+    int rc;
+    g_log = fopen(plat_log_path(), "w");
+    rc = app_main(argc, argv);
+    plat_log("exit code %d", rc);
+    if (g_log) fclose(g_log);
+    return rc;
+}
 #endif

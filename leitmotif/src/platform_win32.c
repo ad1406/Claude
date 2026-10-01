@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "gl_inc.h"
 #include "platform.h"
 
@@ -140,12 +141,13 @@ int plat_init(const char *title, int w, int h, int min_w, int min_h, int *msaa) 
     wc.lpfnWndProc = wndproc; wc.hInstance = hi; wc.lpszClassName = CLASS_NAME;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-    if (!RegisterClassA(&wc)) return 0;
+    if (!RegisterClassA(&wc)) { plat_log("RegisterClass failed (%lu)", (unsigned long)GetLastError()); return 0; }
     g_cur[CURSOR_ARROW] = LoadCursor(NULL, IDC_ARROW);
     g_cur[CURSOR_HAND] = LoadCursor(NULL, IDC_HAND);
     g_cur[CURSOR_MOVE] = LoadCursor(NULL, IDC_SIZEALL);
 
     choose = get_choose_pf(hi);
+    plat_log("dpi scale %.2f; wglChoosePixelFormatARB %s", g_st.dpi, choose ? "available" : "missing");
 
     r.left = 0; r.top = 0; r.right = (LONG)(w * g_st.dpi); r.bottom = (LONG)(h * g_st.dpi);
     {   RECT wa; SystemParametersInfoA(SPI_GETWORKAREA, 0, &wa, 0);
@@ -155,7 +157,10 @@ int plat_init(const char *title, int w, int h, int min_w, int min_h, int *msaa) 
     AdjustWindowRect(&r, WS_OVERLAPPEDWINDOW, FALSE);
     g_hwnd = CreateWindowA(CLASS_NAME, title, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
                            r.right - r.left, r.bottom - r.top, NULL, NULL, hi, NULL);
-    if (!g_hwnd) return 0;
+    if (!g_hwnd) { plat_log("CreateWindow failed (%lu)", (unsigned long)GetLastError()); return 0; }
+    {   /* the title is UTF-8; give Windows the wide-character version */
+        WCHAR wt[256];
+        if (MultiByteToWideChar(CP_UTF8, 0, title, -1, wt, 256) > 0) SetWindowTextW(g_hwnd, wt); }
     g_hdc = GetDC(g_hwnd);
     *msaa = 0;
     if (choose) {
@@ -172,9 +177,10 @@ int plat_init(const char *title, int w, int h, int min_w, int min_h, int *msaa) 
             } else pf = 0;
         }
     }
-    if (!pf && !(pf = basic_format(g_hdc))) return 0;
+    if (!pf && !(pf = basic_format(g_hdc))) { plat_log("no usable pixel format (%lu)", (unsigned long)GetLastError()); return 0; }
+    plat_log("pixel format %d, msaa %d", pf, *msaa);
     g_rc = wglCreateContext(g_hdc);
-    if (!g_rc || !wglMakeCurrent(g_hdc, g_rc)) return 0;
+    if (!g_rc || !wglMakeCurrent(g_hdc, g_rc)) { plat_log("OpenGL context failed (%lu)", (unsigned long)GetLastError()); return 0; }
     swapint = (SwapInt)(void *)wglGetProcAddress("wglSwapIntervalEXT");
     if (swapint) swapint(1);
 
@@ -237,7 +243,9 @@ int plat_audio_open(int rate) {
     memset(&f, 0, sizeof f);
     f.wFormatTag = WAVE_FORMAT_PCM; f.nChannels = 1; f.nSamplesPerSec = (DWORD)rate;
     f.wBitsPerSample = 16; f.nBlockAlign = 2; f.nAvgBytesPerSec = (DWORD)rate * 2;
-    if (waveOutOpen(&g_wo, WAVE_MAPPER, &f, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR) { g_wo = NULL; return 0; }
+    {   MMRESULT mr = waveOutOpen(&g_wo, WAVE_MAPPER, &f, 0, 0, CALLBACK_NULL);
+        if (mr != MMSYSERR_NOERROR) { plat_log("waveOutOpen failed (%u): no sound", (unsigned)mr); g_wo = NULL; return 0; } }
+    plat_log("audio open, %d Hz", rate);
     g_rate = rate;
     for (i = 0; i < NBUF; i++) {
         memset(&g_hdr[i], 0, sizeof g_hdr[i]);
@@ -279,8 +287,44 @@ void plat_audio_close(void) {
 #pragma comment(lib, "winmm.lib")
 #endif
 
+/* ------------------------------------------------------------ diagnostics */
+static char g_logpath[MAX_PATH + 32];
+static FILE *g_log;
+const char *plat_log_path(void) { return g_logpath; }
+void plat_log(const char *fmt, ...) {
+    va_list ap;
+    if (!g_log) return;
+    va_start(ap, fmt); vfprintf(g_log, fmt, ap); va_end(ap);
+    fputc('\n', g_log); fflush(g_log);
+}
+void plat_fatal(const char *msg) {
+    char buf[1024];
+    plat_log("FATAL: %s", msg);
+    _snprintf(buf, sizeof buf, "%s\n\nA log was written to:\n%s", msg, g_logpath); buf[sizeof buf - 1] = 0;
+    MessageBoxA(g_hwnd, buf, "Leitmotif", MB_OK | MB_ICONERROR);
+}
+static LONG WINAPI on_crash(EXCEPTION_POINTERS *ep) {
+    char buf[512];
+    DWORD code = ep->ExceptionRecord->ExceptionCode;
+    void *addr = ep->ExceptionRecord->ExceptionAddress;
+    size_t base = (size_t)GetModuleHandleA(NULL);
+    plat_log("CRASH: exception 0x%08lx at %p (exe offset 0x%llx)", (unsigned long)code, addr, (unsigned long long)((size_t)addr - base));
+    _snprintf(buf, sizeof buf, "Leitmotif crashed (exception 0x%08lx at offset 0x%llx).\n\nPlease send this file:\n%s",
+              (unsigned long)code, (unsigned long long)((size_t)addr - base), g_logpath); buf[sizeof buf - 1] = 0;
+    MessageBoxA(NULL, buf, "Leitmotif", MB_OK | MB_ICONERROR);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
 int WINAPI WinMain(HINSTANCE a, HINSTANCE b, LPSTR c, int d) {
+    DWORD n;
     (void)a; (void)b; (void)c; (void)d;
-    return app_main(__argc, __argv);
+    n = GetTempPathA(MAX_PATH, g_logpath);
+    if (!n || n >= MAX_PATH) g_logpath[0] = 0;
+    strcat(g_logpath, "leitmotif-log.txt");
+    g_log = fopen(g_logpath, "w");
+    SetUnhandledExceptionFilter(on_crash);
+    {   OSVERSIONINFOA v; memset(&v, 0, sizeof v); v.dwOSVersionInfoSize = sizeof v; GetVersionExA(&v);
+        plat_log("Leitmotif starting; Windows %lu.%lu build %lu", (unsigned long)v.dwMajorVersion, (unsigned long)v.dwMinorVersion, (unsigned long)v.dwBuildNumber); }
+    {   int rc = app_main(__argc, __argv); plat_log("exit code %d", rc); if (g_log) fclose(g_log); return rc; }
 }
 #endif

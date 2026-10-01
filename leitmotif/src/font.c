@@ -91,7 +91,7 @@ static unsigned char *read_file(const char *path, long *len) {
     fclose(f); *len = n; return buf;
 }
 
-typedef struct { unsigned char *data; int offset; stbtt_fontinfo info; int ok; } Loaded;
+typedef struct { unsigned char *data; int index, offset; stbtt_fontinfo info; int ok; } Loaded;
 
 static int face_file(int f, int *chain) {
     /* returns primary file and fills a fallback chain (terminated by -1) */
@@ -141,18 +141,20 @@ int font_init(float dpi) {
             snprintf(path, sizeof path, "%s%s", dir, CANDS[i][j].file);
             L[i].data = read_file(path, &len);
             if (!L[i].data) continue;
-            L[i].offset = stbtt_GetFontOffsetForIndex(L[i].data, CANDS[i][j].index);
+            L[i].index = CANDS[i][j].index;
+            L[i].offset = stbtt_GetFontOffsetForIndex(L[i].data, L[i].index);
             if (L[i].offset < 0 || !stbtt_InitFont(&L[i].info, L[i].data, L[i].offset)) { mem_free(L[i].data); L[i].data = NULL; continue; }
             L[i].ok = 1;
+            plat_log("font %d: %s (face %d, %ld bytes)", i, path, CANDS[i][j].index, len);
         }
     }
     /* any missing family borrows the nearest one that loaded */
     {   static const int alt[FL_COUNT][3] = { {FL_SERIF, FL_SYM2, FL_SYM1}, {FL_SANS, FL_SERIFB, FL_SERIF}, {FL_SYM1, FL_SANS, FL_SYM2},
                                               {FL_SERIF, FL_SANS, FL_SYM1}, {FL_SERIF, FL_SANSB, FL_SANS}, {FL_SERIF, FL_SYM2, FL_SANS}, {FL_SANS, FL_SYM1, FL_SERIF} };
         for (i = 0; i < FL_COUNT; i++) if (!L[i].ok) for (j = 0; j < 3; j++) if (L[alt[i][j]].ok && L[alt[i][j]].data) {
-            L[i].info = L[alt[i][j]].info; L[i].offset = L[alt[i][j]].offset; L[i].ok = 2; break; }
+            L[i].info = L[alt[i][j]].info; L[i].offset = L[alt[i][j]].offset; L[i].index = L[alt[i][j]].index; L[i].ok = 2; break; }
     }
-    if (!L[FL_SANS].ok && !L[FL_SERIF].ok) { fprintf(stderr, "no system font found\n"); return 0; }
+    if (!L[FL_SANS].ok && !L[FL_SERIF].ok) { plat_log("no system font found in '%s'", dir); fprintf(stderr, "no system font found\n"); return 0; }
 
     g_aw = 2048; g_ah = 2048;
     if (dpi > 1.3f) { g_aw = 4096; g_ah = 4096; }
@@ -183,7 +185,8 @@ int font_init(float dpi) {
                     memset(&r, 0, sizeof r);
                     r.font_size = fc->px; r.array_of_unicode_codepoints = cp_tmp; r.num_chars = n; r.chardata_for_range = pc_tmp;
                     stbtt_PackSetOversampling(&pc, fc->px < 20 ? 2 : 1, 1);
-                    if (!stbtt_PackFontRanges(&pc, ld->info.data, ld->offset, &r, 1)) { ok = 0; break; }
+                    /* stb wants the font's index within a collection here, not its byte offset */
+                    if (!stbtt_PackFontRanges(&pc, ld->info.data, ld->index, &r, 1)) { ok = 0; break; }
                     for (k = 0; k < n; k++) { fc->pc[idx_tmp[k]] = pc_tmp[k]; fc->have[idx_tmp[k]] = 1; }
                 }
                 {   Loaded *ld = L[prim].ok ? &L[prim] : &L[FL_SERIF];
@@ -194,6 +197,7 @@ int font_init(float dpi) {
             }
             stbtt_PackEnd(&pc);
         }
+        plat_log("font atlas %dx%d: %s", g_aw, g_ah, ok ? "packed" : "too small, retrying");
         if (!ok) { mem_free(bmp); bmp = NULL; if (g_aw == g_ah) g_aw *= 2; else g_ah *= 2; }
     }
     for (i = 0; i < FL_COUNT; i++) if (L[i].ok == 1) mem_free(L[i].data);

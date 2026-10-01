@@ -106,6 +106,7 @@ static void open_piece(int p, int push) {
     if (p < 0) return;
     if (!push) A.depth = 0;
     if (A.depth > 0 && A.stack[A.depth - 1] == p) { A.view = V_PIECE; return; }
+    plat_log("open piece %s", PIECES[p].id);
     if (A.depth < 24) A.stack[A.depth++] = p;
     else { memmove(A.stack, A.stack + 1, sizeof(int) * 23); A.stack[23] = p; }
     A.view = V_PIECE; A.scroll = A.scroll_target = 0; A.hint_shown = 0;
@@ -971,17 +972,25 @@ int app_main(int argc, char **argv) {
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--selftest")) { A.selftest = 1; A.shot_dir = i + 1 < argc ? argv[++i] : "."; }
     }
-    if (!plat_init("Leitmotif — Chapters 1–2 as a score", 1440, 900, 1100, 700, &A.msaa)) { fprintf(stderr, "could not open a window\n"); return 1; }
+    if (!plat_init("Leitmotif \u2014 Chapters 1\u20132 as a score", 1440, 900, 1100, 700, &A.msaa)) { plat_fatal("Could not open an OpenGL window."); return 1; }
     plat_poll(&A.in);
     g_s = A.in.dpi;
     d_begin_frame(A.in.win_w, A.in.win_h);
-    if (!font_init(A.in.dpi)) { plat_shutdown(); return 1; }
+    {   GLint mt = 0; glGetIntegerv(GL_MAX_TEXTURE_SIZE, &mt);
+        plat_log("window %dx%d px, dpi %.2f, msaa %d", A.in.win_w, A.in.win_h, A.in.dpi, A.msaa);
+        plat_log("GL: %s | %s | %s | max texture %d", (const char *)glGetString(GL_VENDOR), (const char *)glGetString(GL_RENDERER), (const char *)glGetString(GL_VERSION), (int)mt); }
+    /* paint the paper colour at once, so the window is never blank while fonts load */
+    glClearColor(0.953f, 0.941f, 0.910f, 1); glClear(GL_COLOR_BUFFER_BIT); plat_swap();
+    if (!font_init(A.in.dpi)) { plat_fatal("Could not load system fonts for the display."); plat_shutdown(); return 1; }
+    plat_log("fonts ready");
     tex_set_palette(MOTIF_COL, MO_COUNT);
     synth_init();
-    if (!A.selftest) plat_audio_open(44100);
+    if (!A.selftest) { int ok = plat_audio_open(44100); plat_log("audio %s", ok ? "on" : "unavailable"); }
     if (A.selftest) synth_mute(1);
     check_content();
+    plat_log("content checked");
     if (!A.selftest) progress_load();
+    plat_log("entering main loop");
     if (A.selftest) { printf("msaa=%d dpi=%.2f GL_RENDERER=%s\n", A.msaa, A.in.dpi, (const char *)glGetString(GL_RENDERER)); max_frames = (10 + NPIECES + MO_COUNT) * 8 + 8; }
     last = plat_time();
     while (!A.in.quit) {
@@ -995,6 +1004,7 @@ int app_main(int argc, char **argv) {
         plat_swap();
         plat_audio_pump(synth_fill);
         A.frames++;
+        if (A.frames == 1) plat_log("first frame drawn");
         if (A.selftest && A.frames > max_frames) A.in.quit = 1;
         if (!A.selftest) { double spent = plat_time() - now; if (spent < 1.0 / 60) plat_sleep(1.0 / 60 - spent); }
         if (!A.in.focused && !A.selftest) plat_sleep(0.03);

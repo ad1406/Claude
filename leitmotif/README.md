@@ -50,6 +50,8 @@ There is also sound. Each motif is one harmonic of the Chapter 1 string (Ground 
 | Backspace, Esc | back along the breadcrumb |
 | ? | help |
 
+If anything goes wrong on Windows, a log is written to `%TEMP%\leitmotif-log.txt`, and a crash shows a dialog naming that file.
+
 Your Perform progress is saved to `%APPDATA%\leitmotif-progress.txt` (Windows) or `~/.leitmotif-progress` (Linux).
 
 ## Run / build

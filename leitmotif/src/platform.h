@@ -40,5 +40,11 @@ int    plat_audio_open(int rate);
 void   plat_audio_pump(AudioFill fill);
 void   plat_audio_close(void);
 
+/* Diagnostics: a plain-text log in the temp folder, and a message box for
+   fatal errors (stderr is invisible in a Windows GUI program). */
+void   plat_log(const char *fmt, ...);
+const char *plat_log_path(void);
+void   plat_fatal(const char *msg);
+
 int    app_main(int argc, char **argv);
 #endif
