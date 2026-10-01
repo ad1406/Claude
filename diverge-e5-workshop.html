@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Diverge E5 Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: workshop-manual page. A live bike model + inspector up top, then one bench per system, then the fix-it binder. */
+:root{
+  --paper:#eef1ef; --panel:#fbfcfb; --ink:#1b2326; --muted:#58676b; --line:#c8d1cf; --soft:#e2e8e6;
+  --accent:#d9531e; --accent-ink:#ffffff; --accent-soft:#f8dccd;
+  --motion:#17788a; --motion-soft:#d3e9ec;
+  --frame:#3d5c52; --metal:#8b979a; --metal-d:#5f6b6e; --rubber:#262c2e; --chain:#4a5254; --rotor:#9aa5a8;
+  --ok:#2c7a4b; --warn:#a86a12; --bad:#bf3326; --ok-soft:#d8eedf; --warn-soft:#f6e6c9; --bad-soft:#f7d7d2;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --paper:#111618; --panel:#182023; --ink:#e3eae9; --muted:#95a5a7; --line:#2d393c; --soft:#1f292c;
+  --accent:#ff7b42; --accent-ink:#1a0c05; --accent-soft:#3d2216;
+  --motion:#4fb6c9; --motion-soft:#16343a;
+  --frame:#6f9a8b; --metal:#8f9da0; --metal-d:#b4c0c2; --rubber:#3b4548; --chain:#a3adb0; --rotor:#7c888b;
+  --ok:#5cc489; --warn:#e2a64a; --bad:#ff6f5e; --ok-soft:#163626; --warn-soft:#3a2c12; --bad-soft:#3f1c18;
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --paper:#111618; --panel:#182023; --ink:#e3eae9; --muted:#95a5a7; --line:#2d393c; --soft:#1f292c;
+  --accent:#ff7b42; --accent-ink:#1a0c05; --accent-soft:#3d2216;
+  --motion:#4fb6c9; --motion-soft:#16343a;
+  --frame:#6f9a8b; --metal:#8f9da0; --metal-d:#b4c0c2; --rubber:#3b4548; --chain:#a3adb0; --rotor:#7c888b;
+  --ok:#5cc489; --warn:#e2a64a; --bad:#ff6f5e; --ok-soft:#163626; --warn-soft:#3a2c12; --bad-soft:#3f1c18;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 var(--f-body);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding-inline:20px}
+@media (max-width:520px){.wrap{padding-inline:16px}}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;text-wrap:balance;margin:0;line-height:1.05}
+h1{font-size:clamp(2.1rem,4.6vw,3.3rem);text-transform:uppercase}
+h2{font-size:clamp(1.8rem,3.4vw,2.4rem);text-transform:uppercase}
+h3{font-size:1.35rem}
+p{margin:0}
+.eyebrow{font:600 .74rem/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:var(--motion)}
+
+/* top bar */
+.topbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line)}
+.topbar .wrap{display:flex;align-items:center;gap:18px;min-height:50px;flex-wrap:wrap;padding-block:6px}
+.brand{font:700 1.15rem/1 var(--f-display);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.brand b{color:var(--accent)}
+.nav{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.nav a{font:600 .8rem/1 var(--f-mono);text-transform:uppercase;letter-spacing:.06em;text-decoration:none;color:var(--muted);padding:8px 10px;border-radius:4px}
+.nav a:hover{color:var(--ink);background:var(--soft)}
+
+header.hero{padding-block:34px 10px}
+.hero-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:28px;align-items:end}
+.hero-grid>*{min-width:0}
+#specSel{flex:1 1 220px;width:100%}
+.hero p.lede{font-size:1.05rem;max-width:62ch;color:var(--muted);margin-top:12px}
+.spec-box{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:14px 16px;display:grid;gap:10px}
+.spec-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.spec-row label{font:600 .72rem/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);min-width:84px}
+select{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:6px 8px;min-width:0;max-width:100%}
+.note{font-size:.82rem;color:var(--muted)}
+@media (max-width:860px){.hero-grid{grid-template-columns:1fr}}
+
+section{padding-block:28px}
+.sec-head{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.sec-head p{color:var(--muted);max-width:70ch}
+
+/* explorer */
+.explorer{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+@media (max-width:980px){.explorer{grid-template-columns:1fr}}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.stage-top{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:transparent;border-radius:999px;padding:4px 11px;font-size:.82rem;cursor:pointer;color:var(--muted)}
+.chip:hover{color:var(--ink);border-color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.svgbox{overflow-x:auto}
+#bike{display:block;width:100%;min-width:560px;height:auto;touch-action:manipulation}
+@media (max-width:640px){#bike{min-width:0}}
+.caption-bar{min-height:46px;padding:10px 14px;border-top:1px solid var(--line);font-size:.92rem;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.caption-bar .step{font:600 .74rem/1 var(--f-mono);color:var(--accent);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.ctl{background:var(--panel);padding:10px 14px;display:grid;gap:6px;align-content:start}
+.ctl .lab{font:600 .7rem/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--paper);border-radius:5px;padding:6px 11px;cursor:pointer;font-size:.88rem;line-height:1.2;white-space:nowrap}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.seg button{border:0;background:var(--paper);padding:6px 10px;cursor:pointer;font-size:.86rem}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.readouts{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.ro{background:var(--panel);padding:9px 14px}
+.ro .k{font:600 .66rem/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ro .v{font:600 1.25rem/1.25 var(--f-mono);font-variant-numeric:tabular-nums}
+.ro .v small{font-size:.7rem;color:var(--muted);font-weight:400}
+.pill{display:inline-flex;align-items:center;gap:6px;font:600 .72rem/1 var(--f-mono);letter-spacing:.05em;text-transform:uppercase;padding:4px 8px;border-radius:3px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.info{background:var(--motion-soft);color:var(--motion)}
+
+/* inspector */
+.inspector{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;gap:12px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 64px);max-height:calc(100vh - 80px);overflow:auto}
+@media (max-width:980px){.inspector{position:static;max-height:none}}
+.inspector h3{font-size:1.6rem}
+.inspector .grp{font:600 .7rem/1 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.inspector dl{margin:0;display:grid;gap:10px}
+.inspector dt{font:600 .7rem/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.inspector dd{margin:0;font-size:.9rem}
+.linkchips{display:flex;gap:5px;flex-wrap:wrap}
+.linkchip{border:1px solid var(--line);background:var(--paper);border-radius:4px;padding:3px 8px;font-size:.8rem;cursor:pointer}
+.linkchip:hover{border-color:var(--accent);color:var(--accent)}
+.problink{display:block;text-align:left;width:100%;border:0;background:var(--soft);border-radius:4px;padding:6px 9px;font-size:.85rem;cursor:pointer;margin-top:4px}
+.problink:hover{background:var(--accent-soft)}
+.partlist{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.partlist button{text-align:left;border:0;background:transparent;padding:4px 6px;border-radius:4px;font-size:.84rem;cursor:pointer;color:var(--ink)}
+.partlist button:hover{background:var(--soft)}
+
+/* SVG parts */
+#bike .part{cursor:pointer;transition:opacity .25s}
+#bike .part:hover{filter:drop-shadow(0 0 2px var(--accent))}
+#bike.focus .part:not(.hl){opacity:.28}
+#bike .part.hl{filter:drop-shadow(0 0 3px var(--accent)) drop-shadow(0 0 1px var(--accent))}
+.s-frame{stroke:var(--frame);fill:none;stroke-linecap:round;stroke-linejoin:round}
+.s-metal{stroke:var(--metal);fill:none;stroke-linecap:round}
+.f-metal{fill:var(--metal)}
+.f-metald{fill:var(--metal-d)}
+.f-ink{fill:var(--ink)}
+.s-ink{stroke:var(--ink);fill:none}
+.s-rubber{stroke:var(--rubber);fill:none}
+.f-rubber{fill:var(--rubber)}
+.f-panel{fill:var(--panel)}
+.s-muted{stroke:var(--muted);fill:none}
+.t-label{font:600 11px var(--f-mono);fill:var(--ink)}
+.t-small{font:500 10px var(--f-mono);fill:var(--muted)}
+.t-acc{font:600 11px var(--f-mono);fill:var(--accent)}
+.lbl-bg{fill:var(--panel);stroke:var(--line)}
+.cable{stroke:var(--accent);fill:none;stroke-width:2;opacity:.75}
+.cable.inside{stroke-dasharray:4 4;opacity:.55}
+.braking .caliper-pad{fill:var(--bad)}
+.flow{stroke:var(--motion);fill:none}
+.ground{stroke:var(--line);stroke-width:2}
+
+/* mechanisms */
+.tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:2px solid var(--ink)}
+.tab{border:0;background:transparent;padding:10px 14px;font:700 1.05rem/1 var(--f-display);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);cursor:pointer;border-radius:5px 5px 0 0}
+.tab:hover{color:var(--ink);background:var(--soft)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--paper)}
+.bench{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:18px;padding-top:18px;align-items:start}
+@media (max-width:900px){.bench{grid-template-columns:1fr}}
+.figure{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.figure .svgbox svg{display:block;width:100%;height:auto;min-width:480px}
+.figure .figcap{padding:10px 14px;border-top:1px solid var(--line);font-size:.84rem;color:var(--muted)}
+.status{display:grid;gap:6px;padding:12px 14px;border-top:1px solid var(--line)}
+.status .msg{display:flex;gap:10px;align-items:flex-start;font-size:.9rem}
+.side{display:grid;gap:14px;align-content:start;min-width:0}
+.side .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:grid;gap:10px}
+.side .card h3{font-size:1.2rem}
+.side p, .side li{font-size:.92rem}
+.side ul,.side ol{margin:0;padding-left:20px;display:grid;gap:4px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.88rem}
+.kv span:nth-child(odd){color:var(--muted)}
+.slider-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center}
+.slider-row label{font-size:.86rem}
+.slider-row output{font:600 .82rem var(--f-mono);font-variant-numeric:tabular-nums}
+.slider-row input{grid-column:1/-1}
+.gtable{border-collapse:collapse;font:500 .82rem var(--f-mono);font-variant-numeric:tabular-nums;width:100%}
+.gtable th,.gtable td{border:1px solid var(--line);padding:5px 6px;text-align:center}
+.gtable th{color:var(--muted);font-weight:600;background:var(--soft)}
+.gtable td{cursor:pointer}
+.gtable td.cross{color:var(--muted);background:repeating-linear-gradient(135deg,transparent 0 5px,var(--soft) 5px 7px)}
+.gtable td.cur{outline:2px solid var(--accent);outline-offset:-2px;font-weight:700;color:var(--accent)}
+.tablewrap{overflow-x:auto}
+
+/* fix it */
+.fix-tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.search{flex:1 1 240px;min-width:0;border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:9px 12px}
+.fixgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,520px),1fr));gap:12px}
+details.fix{background:var(--panel);border:1px solid var(--line);border-radius:8px}
+details.fix[open]{border-color:var(--muted)}
+details.fix summary{list-style:none;cursor:pointer;padding:13px 16px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:start}
+details.fix summary::-webkit-details-marker{display:none}
+.sev{width:10px;height:10px;border-radius:2px;margin-top:7px}
+.sev.ok{background:var(--ok)} .sev.warn{background:var(--warn)} .sev.bad{background:var(--bad)}
+.fix .ttl{font-weight:600;font-size:1rem}
+.fix .sub{font-size:.85rem;color:var(--muted)}
+.fix .meta{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.fixbody{padding:0 16px 16px 38px;display:grid;gap:12px}
+@media (max-width:520px){.fixbody{padding-left:16px}}
+.fixbody h4{margin:0 0 4px;font:600 .72rem/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.fixbody ol,.fixbody ul{margin:0;padding-left:20px;display:grid;gap:5px;font-size:.92rem}
+.fixbody p{font-size:.92rem}
+.causes li b{font-weight:600}
+.shop{border-left:3px solid var(--bad);padding:6px 10px;background:var(--bad-soft);font-size:.88rem;border-radius:0 4px 4px 0}
+.empty{padding:20px;color:var(--muted)}
+footer{padding-block:30px 50px;color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);margin-top:20px}
+footer .wrap{display:grid;gap:8px}
+.flash{animation:flash 1.4s ease-out}
+@keyframes flash{0%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
+@media (prefers-reduced-motion: reduce){.flash{animation:none}}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand">Diverge <b>E5</b> Workshop</div>
+    <nav class="nav" aria-label="Sections">
+      <a href="#model">Model</a><a href="#paths">Systems together</a><a href="#bench">How it works</a><a href="#fix">Fix it</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero wrap">
+  <div class="hero-grid">
+    <div>
+      <div class="eyebrow">Specialized Diverge E5 · aluminium gravel bike</div>
+      <h1>Understand every moving part</h1>
+      <p class="lede">Pedal, shift and brake the model below and watch what each part does. Tap any part to see what it's for and what goes wrong with it. Then take each system apart on its own bench, or jump straight to the symptom you're fighting.</p>
+    </div>
+    <div class="spec-box">
+      <div class="spec-row"><label for="specSel">Build</label>
+        <select id="specSel">
+          <option value="base">E5 base: Shimano Claris 2×8, mechanical discs</option>
+          <option value="elite">E5 Elite-type: Shimano GRX 2×10, hydraulic discs</option>
+        </select></div>
+      <div class="spec-row"><label for="ringSel">Chainrings</label><select id="ringSel"></select>
+        <label for="cassSel" style="min-width:0">Cassette</label><select id="cassSel"></select></div>
+      <p class="note">Specs changed between model years and trims. Tooth counts are stamped on each chainring and on the smallest and largest cogs; set yours here and every number on the page follows.</p>
+    </div>
+  </div>
+</header>
+
+<main>
+<section id="model" class="wrap">
+  <div class="explorer">
+    <div class="stage">
+      <div class="stage-top">
+        <span class="eyebrow">Show</span>
+        <div class="chips" id="groupChips" role="group" aria-label="Highlight a system"></div>
+        <span style="flex:1"></span>
+        <button class="chip" id="labelsBtn" aria-pressed="false">Labels</button>
+      </div>
+      <div class="svgbox"><svg id="bike" viewBox="10 64 980 556" role="img" aria-label="Side view of the bike, drive side. Parts are clickable."></svg></div>
+      <div class="caption-bar" id="captionBar" aria-live="polite"><span class="step" id="capStep">Live model</span><span id="capText">Animation runs at ¼ speed so you can follow it. The disc brakes sit on the far side of the bike and are drawn faded.</span></div>
+      <div class="controls">
+        <div class="ctl">
+          <span class="lab">Pedalling</span>
+          <div class="row"><button class="btn primary" id="pedalBtn">Stop pedalling</button></div>
+          <span class="lab" style="margin-top:4px"><label for="cadence">Cadence <span class="mono" id="cadOut">80</span> rpm</label></span>
+          <input type="range" id="cadence" min="30" max="120" value="80">
+        </div>
+        <div class="ctl">
+          <span class="lab">Front shifter (left lever)</span>
+          <div class="seg" role="group" aria-label="Chainring"><button id="ring0" aria-pressed="false">Small ring</button><button id="ring1" aria-pressed="true">Big ring</button></div>
+          <span class="lab" style="margin-top:4px">Rear shifter (right lever)</span>
+          <div class="row"><button class="btn" id="rearHarder" title="Shift to a smaller cog">− Harder</button><span class="mono" id="cogOut">21T</span><button class="btn" id="rearEasier" title="Shift to a bigger cog">Easier +</button></div>
+        </div>
+        <div class="ctl">
+          <span class="lab">Brakes</span>
+          <div class="row"><button class="btn" id="brakeBtn" aria-pressed="false">Hold to brake</button><span class="note">or hold B</span></div>
+          <span class="note">Releasing the pedals while moving shows the freehub at work: the wheels coast, the cranks and chain stop.</span>
+        </div>
+      </div>
+      <div class="readouts">
+        <div class="ro"><div class="k">Gear</div><div class="v" id="roGear">46×21</div></div>
+        <div class="ro"><div class="k">Ratio</div><div class="v" id="roRatio">2.19</div></div>
+        <div class="ro"><div class="k">Per crank turn</div><div class="v" id="roDev">4.8 <small>m</small></div></div>
+        <div class="ro"><div class="k">Speed</div><div class="v" id="roSpeed">0 <small>km/h</small></div></div>
+        <div class="ro"><div class="k">Freehub</div><div class="v" id="roHub" style="font-size:.95rem;padding-top:3px"></div></div>
+      </div>
+    </div>
+
+    <aside class="inspector" id="inspector" aria-live="polite"></aside>
+  </div>
+</section>
+
+<section id="paths" class="wrap">
+  <div class="sec-head"><h2>Systems working together</h2><p>Each run below traces one job through the bike, part by part, on the model above. Watch where force enters, what carries it, and where it ends up.</p></div>
+  <div class="chips" id="pathChips"></div>
+  <p class="note" style="margin-top:10px">A run highlights each part in turn on the model and explains its role in the caption bar. Use the arrow keys or the buttons in the caption bar to step manually.</p>
+</section>
+
+<section id="bench" class="wrap">
+  <div class="sec-head"><h2>How each system works</h2><p>Every bench isolates one mechanism. Move the adjusters and see what the bike would do. Faults you create here match the problems in the fix-it guide.</p></div>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div id="benchBody"></div>
+</section>
+
+<section id="fix" class="wrap">
+  <div class="sec-head"><h2>Fix it</h2><p>Find your symptom. Each entry lists the likely causes in order of how often they're the culprit, a quick check to confirm, and the fix. "See it happen" recreates the fault on the matching bench.</p></div>
+  <div class="fix-tools">
+    <label class="visually-hidden" for="fixSearch">Search problems</label>
+    <input class="search" id="fixSearch" type="search" placeholder="Describe it: skips, squeal, creak, flat, rub…">
+    <div class="chips" id="sysChips" role="group" aria-label="Filter by system"></div>
+  </div>
+  <div class="fixgrid" id="fixGrid"></div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><b>Torque values:</b> a number printed on a part (stem, seat clamp, axle) always wins over any figure on this page. Use a torque wrench on aluminium and carbon parts.</p>
+    <p>This is an independent study guide, not a Specialized publication. The drawing is schematic, at roughly real proportions for a 56 cm frame. Check your owner's manual for model-year specifics.</p>
+  </div>
+</footer>
+
+<script>
+(()=>{
+'use strict';
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const MM = 0.52;               // drawing units per mm
+const PITCH = 12.7;            // chain pitch, mm
+const CIRC = 2.19;             // 700×38 rolling circumference, m
+const pr = n => PITCH/(2*Math.sin(Math.PI/n));       // pitch radius, mm
+const deg = a => a*Math.PI/180;
+const fmt = (v,d=1)=>Number(v).toFixed(d);
+
+/* ---------- spec ---------- */
+const RINGS = {'50/34':[34,50],'46/34':[34,46],'46/32':[32,46],'46/30':[30,46]};
+const CASS = {
+  '8sp 11-32':{cogs:[11,13,15,18,21,24,28,32],pitch:4.8},
+  '8sp 11-34':{cogs:[11,13,15,18,21,24,28,34],pitch:4.8},
+  '10sp 11-34':{cogs:[11,13,15,17,19,21,23,26,30,34],pitch:4.35},
+  '10sp 11-36':{cogs:[11,13,15,17,19,21,24,28,32,36],pitch:4.35},
+};
+const BUILDS = {
+  base:{rings:'46/32',cass:'8sp 11-34',brake:'mech',group:'Shimano Claris (8-speed)'},
+  elite:{rings:'46/30',cass:'10sp 11-36',brake:'hydro',group:'Shimano GRX RX400 (10-speed)'},
+};
+
+const S = {
+  build:'base', rings:[32,46], cass:CASS['8sp 11-34'], brakeType:'mech',
+  front:1, rear:4, pedaling:!reduceMotion, cadence:80, v:0, brake:0,
+  crankA:deg(30), wheelA:0, cogA:0, chainOff:0, engaged:true,
+};
+function applyBuild(b){
+  S.build=b; const B=BUILDS[b];
+  S.rings=RINGS[B.rings]; S.cass=CASS[B.cass]; S.brakeType=B.brake;
+  $('#ringSel').value=B.rings; $('#cassSel').value=B.cass;
+  S.rear=Math.min(S.rear,S.cass.cogs.length-1);
+  BR.mode=B.brake;
+}
+$('#ringSel').innerHTML=Object.keys(RINGS).map(k=>`<option value="${k}">${k}</option>`).join('');
+$('#cassSel').innerHTML=Object.keys(CASS).map(k=>`<option value="${k}">${k}</option>`).join('');
+
+const ring = ()=>S.rings[S.front];
+const cog = ()=>S.cass.cogs[S.rear];
+const ratio = ()=>ring()/cog();
+
+/* ---------- geometry (drawing units) ---------- */
+const G = { R:[230,420], F:[758,420], BB:[447,464], ST:[373,215], HTt:[645,162], HTb:[670,236], WR:182, CRANK:170*MM };
+const polar=(c,r,a)=>[c[0]+r*Math.cos(a), c[1]+r*Math.sin(a)];
+const P=p=>p[0].toFixed(1)+','+p[1].toFixed(1);
+
+/* ---------- parts catalogue ---------- */
+const GROUPS = {frame:'Frame & fork',drive:'Drivetrain',brake:'Brakes',wheel:'Wheels & tyres',contact:'Contact points'};
+const PARTS = {
+ frame:{name:'Frame',g:'frame',at:[513,204],lab:[440,170],
+  does:'The aluminium structure everything bolts to. Its tube angles set how the bike steers and fits; its stiffness decides how much pedalling force reaches the back wheel instead of flexing the frame.',
+  spec:'E5 Premium aluminium, hydroformed tubes, internal cable routing, threaded bottom bracket, flat-mount disc mounts, 12×142 mm rear thru-axle. Big tyre clearance (around 47 mm on 700c).',
+  links:['fork','bb','headset','seatpost','hanger','thruaxle'],
+  check:'Look for cracks near welds (head tube, BB, dropouts) after any crash. Paint cracking in a ring round a tube is a warning sign.',
+  probs:['creak'],tab:null},
+ fork:{name:'Fork',g:'frame',at:[712,330],lab:[730,300],
+  does:'Holds the front wheel and turns with the handlebar. Its forward bend (offset) and the head angle together create "trail", which is what makes the bike want to go straight.',
+  spec:'Carbon blades, 12×100 mm thru-axle, flat-mount brake. Some Diverge models and years use Future Shock suspension in the head tube; the E5 base is rigid.',
+  links:['headset','thruaxle','calipers','cockpit'],
+  check:'Hold the front brake and rock the bike: any knock here is usually the headset, not the fork.',
+  probs:['headset','rub'],tab:'steer'},
+ headset:{name:'Headset',g:'frame',at:[657,200],lab:[600,145],
+  does:'Two cartridge bearings in the head tube let the fork steer smoothly. The top cap bolt sets "preload", squeezing the bearings just enough to remove play; the stem bolts then lock that setting in.',
+  spec:'Tapered steerer: 1⅛″ top bearing, 1½″ bottom bearing, sealed cartridge.',
+  links:['fork','cockpit','frame'],
+  check:'Front brake on, rock the bike back and forth with a hand around the top bearing. Feel for a clunk.',
+  probs:['headset','notchy'],tab:'steer'},
+ cockpit:{name:'Stem & handlebar',g:'contact',at:[690,145],lab:[700,98],
+  does:'The stem clamps the steerer and the bar; the bar holds the levers. A flared gravel drop bar gives more control in the drops.',
+  spec:'Alloy stem (length scales with frame size), flared alloy drop bar.',
+  links:['headset','levers','fork'],
+  check:'Stand over the front wheel, grip it between your knees and twist the bar. It must not move.',
+  probs:['headset'],tab:'steer'},
+ levers:{name:'Shift/brake levers',g:'brake',at:[728,165],lab:[790,170],
+  does:'Each lever does two jobs. Pull the blade back to brake. Swing it sideways (or press the inner paddle) to shift: the right lever moves the rear derailleur, the left moves the front.',
+  spec:'Base: Claris mechanical levers pulling brake and gear cables. Elite-type: GRX levers with a hydraulic master cylinder for the brakes.',
+  links:['cables','rd','fd','calipers'],
+  check:'Each shift click should feel crisp. A lever that moves with no resistance usually means a snapped cable inside.',
+  probs:['shifter','leverbar','spongy'],tab:'brakes'},
+ cables:{name:'Cables, housing & hoses',g:'brake',at:[560,346],lab:[575,375],
+  does:'Steel inner cables slide inside housing to carry lever pull to the derailleurs and (on mechanical brakes) the calipers. Hydraulic builds use sealed hoses filled with mineral oil instead.',
+  spec:'Routed inside the frame. Shift housing is compressionless; brake housing is spiral-wound.',
+  links:['levers','rd','fd','calipers'],
+  check:'Frayed ends, kinks, rust and gritty movement all cause sluggish shifting. New cables stretch slightly in the first few rides.',
+  probs:['slowup','slowdown','leverbar','shifter'],tab:'rd'},
+ seatpost:{name:'Seatpost & clamp',g:'contact',at:[358,170],lab:[300,195],
+  does:'Sets saddle height. The clamp squeezes the top of the seat tube around the post.',
+  spec:'27.2 mm alloy post; external or wedge clamp depending on year.',
+  links:['saddle','frame'],
+  check:'Mark the post at the clamp with tape. If the mark moves, see "Seatpost slips".',
+  probs:['saddle','creak'],tab:null},
+ saddle:{name:'Saddle',g:'contact',at:[336,104],lab:[255,80],
+  does:'Carries most of your weight. Rails let you slide it forward/back and tilt it.',
+  spec:'Specialized Bridge-type saddle on most E5 builds.',
+  links:['seatpost'],
+  check:'Saddle-rail clamp bolts loosen over time and are a common creak source.',
+  probs:['saddle','creak'],tab:null},
+ bb:{name:'Bottom bracket',g:'drive',at:[447,464],lab:[470,560],
+  does:'Bearings in the frame\'s BB shell that the crank axle spins in. Everything you put into the pedals passes through here.',
+  spec:'Threaded BSA, 68 mm shell, external cups. Threaded is the easy kind: remove, clean, grease, refit.',
+  links:['crankset','frame'],
+  check:'Remove the chain and spin the cranks: they should turn smoothly with no grinding. Grab a crank and rock it sideways to check for play.',
+  probs:['creak'],tab:'steer'},
+ crankset:{name:'Crankset & chainrings',g:'drive',at:[470,440],lab:[510,535],
+  does:'The crank arms turn your leg force into torque; the chainrings turn that torque into chain tension. Two rings give a high and a low range.',
+  spec:'Two chainrings, 170–172.5 mm arms depending on size.',
+  links:['bb','chain','pedals','fd'],
+  check:'Look for bent or shark-fin-shaped teeth. Check the chainring bolts and the crank pinch bolts are tight.',
+  probs:['drop','creak','noisy'],tab:'gearing'},
+ pedals:{name:'Pedals',g:'contact',get at(){return polar(G.BB,G.CRANK,S.crankA);},lab:[560,600],
+  does:'Your contact with the drivetrain. Threaded into the cranks: the left pedal has a reverse (left-hand) thread so pedalling tightens both.',
+  spec:'Flat pedals ship on most E5s. 9/16″ thread.',
+  links:['crankset'],
+  check:'A click once per pedal stroke is often a dry pedal thread. Remove, grease, refit.',
+  probs:['creak'],tab:null},
+ chain:{name:'Chain',g:'drive',at:[340,402],lab:[330,375],
+  does:'Carries tension from the chainring to the cassette along its top run. The bottom run carries no load; the rear derailleur keeps it taut. Narrow enough to slip between cogs when pushed sideways, which is how shifting works.',
+  spec:'Base: 8-speed chain. Elite-type: 10-speed chain. Do not mix speeds.',
+  links:['crankset','cassette','rd','fd'],
+  check:'Use a chain checker. Replace at 0.75 % elongation on 8/10-speed (0.5 % on 11/12-speed). A new chain costs far less than the cassette and rings an old one wears out.',
+  probs:['skip','noisy'],tab:'gearing'},
+ fd:{name:'Front derailleur',g:'drive',at:[405,424],lab:[395,355],
+  does:'A cage around the chain just above the chainrings. Pull the cable and it pushes the chain outward onto the big ring; release it and a spring pulls it back to the small ring.',
+  spec:'Braze-on mount, cable pull from below. Two limit screws (H and L) and a trim position on the big ring.',
+  links:['chain','crankset','cables','levers'],
+  check:'The outer cage plate should sit 1–3 mm above the big ring teeth and parallel to the ring.',
+  probs:['fdrub','drop'],tab:'fd'},
+ rd:{name:'Rear derailleur',g:'drive',at:[240,480],lab:[135,520],
+  does:'A spring-loaded parallelogram that moves the chain across the cassette. Cable pull moves it toward bigger cogs; its spring returns it to smaller cogs. Its cage also takes up chain slack.',
+  spec:'Base: Claris 8-speed. Elite-type: GRX 10-speed. Barrel adjuster at the cable entry, H and L limit screws, B-tension screw.',
+  links:['hanger','cassette','chain','cables','levers'],
+  check:'Look from behind: the two jockey wheels should line up vertically under the cog they\'re on.',
+  probs:['skip','slowup','slowdown','spokes','dropout','hanger'],tab:'rd'},
+ hanger:{name:'Derailleur hanger',g:'drive',at:[236,432],lab:[150,455],
+  does:'A small, deliberately soft aluminium plate between frame and derailleur. In a crash it bends or snaps so the frame doesn\'t. A slightly bent hanger is the hidden cause of a lot of bad shifting.',
+  spec:'Replaceable, specific to this frame. Keep a spare; they\'re cheap.',
+  links:['rd','frame','thruaxle'],
+  check:'Look from behind: the derailleur should hang straight down in line with the cassette.',
+  probs:['hanger','skip'],tab:'rd'},
+ cassette:{name:'Cassette',g:'drive',at:[230,420],lab:[180,360],
+  does:'The stack of rear cogs. Small cogs are hard gears; big cogs are easy gears. Ramps and pins on each cog help the chain climb between them.',
+  spec:'Base: 8-speed. Elite-type: 10-speed. Slides onto the freehub splines and is held with a lockring.',
+  links:['chain','rd','hubs'],
+  check:'If a new chain skips on the cogs you use most, the cassette is worn too.',
+  probs:['skip','noisy'],tab:'gearing'},
+ hubs:{name:'Hubs & freehub',g:'wheel',at:[230,420],lab:[255,330],
+  does:'Bearings let the wheels spin on their axles. The rear hub has a freehub: spring-loaded pawls grip a toothed ring when you pedal and click past it when you coast.',
+  spec:'Sealed-bearing hubs, 12 mm thru-axle front and rear, Centerlock or 6-bolt rotor mount depending on wheelset.',
+  links:['cassette','wheels','rotors','thruaxle'],
+  check:'With the wheel in the bike, try to wiggle the rim sideways. Play here means hub bearings.',
+  probs:['freehub','wobble'],tab:'wheels'},
+ wheels:{name:'Rims & spokes',g:'wheel',at:[758,300],lab:[820,250],
+  does:'Spokes hang the hub from the rim under tension. Torque from the hub (pedalling at the back, braking at both) travels through the spokes to the rim.',
+  spec:'Alloy rims, 700c, 24–28 spokes. Tubeless-ready on many E5 wheelsets.',
+  links:['tires','hubs','rotors'],
+  check:'Spin each wheel and watch the gap at the frame or fork. A wobble you can see is a wheel that needs truing.',
+  probs:['wobble','flat'],tab:'wheels'},
+ tires:{name:'Tyres',g:'wheel',at:[130,520],lab:[30,600],
+  does:'Your suspension and your grip. Pressure decides how big the contact patch is, how much the tyre absorbs bumps, and how likely a pinch flat is.',
+  spec:'700×38 mm gravel tyres on most E5s.',
+  links:['wheels'],
+  check:'Check pressure before every ride. Gravel tyres lose air faster than you expect.',
+  probs:['flat'],tab:'wheels'},
+ thruaxle:{name:'Thru-axles',g:'frame',at:[758,420],lab:[880,470],
+  does:'A 12 mm bolt-through axle passes through the dropouts and hub and threads into the far side. It locates the wheel exactly, so the disc rotor lands in the same place every time.',
+  spec:'12×100 mm front, 12×142 mm rear.',
+  links:['hubs','fork','frame','hanger'],
+  check:'Tighten by hand to the torque printed on the axle. A loose axle causes creaks, brake rub and vague shifting.',
+  probs:['rub','creak','wobble'],tab:'wheels'},
+ rotors:{name:'Disc rotors',g:'brake',at:[230,340],lab:[95,300],
+  does:'Steel discs bolted to the hubs. Pads squeeze them to turn speed into heat. They are on the far (left) side of the bike, so they\'re drawn faded here.',
+  spec:'160 mm front and rear on most sizes.',
+  links:['calipers','hubs'],
+  check:'Spin the wheel and look through the caliper slot. A rotor that wavers will tick against the pads once per turn.',
+  probs:['rub','weak'],tab:'brakes'},
+ calipers:{name:'Brake calipers',g:'brake',at:[317,405],lab:[300,445],
+  does:'Hold the pads either side of the rotor. Mechanical calipers push one pad with a cam and flex the rotor onto the fixed pad. Hydraulic calipers push both pads with oil pressure.',
+  spec:'Base: cable-actuated mechanical discs. Elite-type: Shimano hydraulic. Flat mount front and rear.',
+  links:['rotors','cables','levers','fork','frame'],
+  check:'Look in from above with a torch: pads should have at least 0.5 mm of material on the backing plate.',
+  probs:['leverbar','spongy','weak','rub'],tab:'brakes'},
+};
+
+/* ---------- problems ---------- */
+const SYS = {shift:'Shifting',drive:'Chain & drivetrain',brake:'Brakes',wheel:'Wheels & tyres',steer:'Steering & frame',noise:'Noises'};
+const PROBS = [
+ {id:'skip',sys:['shift','drive','noise'],sev:'warn',t:'Chain skips or jumps under load',sub:'Pedals "slip" for a moment when you push hard, or it changes gear by itself.',
+  parts:['chain','cassette','rd','hanger','cables'],time:'10–30 min',diff:'Easy',
+  causes:['<b>Cable tension slightly off</b>: the pulley sits between two cogs.','<b>Worn chain and cassette</b>: an elongated chain rides up the cog teeth.','<b>Bent derailleur hanger</b>: usually after the bike has been knocked over on its right side.','<b>Stiff chain link</b>: watch the derailleur cage jump once per chain revolution.'],
+  check:'Pedal on a stand in each gear. If skipping happens in one gear, it is tension. If it is constant in your most-used gears, measure the chain.',
+  steps:['Shift to the big ring and second-smallest cog. Turn the cranks forward.','If the chain rattles toward the next bigger cog, turn the barrel adjuster ¼ turn clockwise (less tension). If it hesitates or rattles toward the smaller cog, turn it ¼ turn anticlockwise (more tension).','Shift up and down through every cog; repeat the ¼-turn tweaks until each change is a single crisp click.','Measure the chain. At 0.75 % or more, replace the chain. If the new chain skips on your favourite cogs, replace the cassette too.','If shifting is good in the middle but poor at the ends, check the hanger (see "Good in the middle, bad at the ends").'],
+  tools:'Hands for the barrel adjuster; chain checker; chain tool or quick-link pliers.',shop:'The hanger looks bent and you have no hanger alignment gauge.',
+  demo:{tab:'rd',rd:{barrel:-5,hanger:0,H:0,L:0}}},
+ {id:'slowup',sys:['shift'],sev:'ok',t:'Won\'t climb to bigger cogs (easier gears)',sub:'You click the lever and it takes a second click, or a pedal stroke, to go.',
+  parts:['cables','rd','levers'],time:'5 min',diff:'Easy',
+  causes:['<b>Cable too slack</b>: new cables stretch and housing ends settle in the first rides.','<b>L limit screw too tight</b>: only if it\'s the biggest cog that won\'t go.','<b>Sticky cable</b>: dirt or corrosion inside the housing.'],
+  check:'Look from behind in a middle gear: the guide pulley sits slightly outboard (toward the smallest cog) of the cog it\'s on.',
+  steps:['Shift to a middle cog.','Turn the barrel adjuster anticlockwise (as seen from the cable side) ½ turn to add tension.','Test shifts up and down; add or take back ¼ turns until each click moves one cog.','If the adjuster runs out of thread, screw it back in, shift to the smallest cog, loosen the cable clamp bolt, pull the cable snug by hand, and re-tighten.'],
+  tools:'Hands; 5 mm hex if re-clamping the cable.',shop:'The cable feels gritty and lever action is heavy. Housing replacement in an internally-routed frame is fiddly.',
+  demo:{tab:'rd',rd:{barrel:-2,hanger:0,H:0,L:0}}},
+ {id:'slowdown',sys:['shift'],sev:'ok',t:'Slow to drop to smaller cogs (harder gears)',sub:'The release lever clicks but the chain lingers, then drops late.',
+  parts:['cables','rd'],time:'5–40 min',diff:'Easy',
+  causes:['<b>Cable too tight</b>: the pulley sits inboard of the cog.','<b>Friction in the housing</b>: the derailleur spring can\'t pull a dirty cable back.','<b>Dry derailleur pivots</b>.'],
+  check:'Shift to the smallest cog, then pull the bare cable out from the frame by hand and let go. It should snap back.',
+  steps:['Turn the barrel adjuster ¼ turn clockwise and re-test.','If tension is right but it\'s still slow, lube the derailleur pivots with a drop of light oil.','If still slow, the housing is dirty or kinked: replace inner cable and housing.'],
+  tools:'Hands; light oil; cable cutters for housing.',shop:'You need to re-route housing through the frame and have no internal-routing guide.',
+  demo:{tab:'rd',rd:{barrel:2,hanger:0,H:0,L:0}}},
+ {id:'spokes',sys:['shift'],sev:'bad',t:'Chain goes past the biggest cog into the spokes',sub:'Overshift on the easiest gear. Stop riding; this can wreck the wheel and derailleur.',
+  parts:['rd','wheels'],time:'5 min',diff:'Easy',
+  causes:['<b>L limit screw too loose</b>.','<b>Bent hanger</b> pushing the derailleur inward.'],
+  check:'Shift to the biggest cog and push the derailleur body inward with your thumb while turning the cranks slowly. The chain must not climb past the cog.',
+  steps:['Shift to the largest cog.','Turn the L screw clockwise in ¼ turns until the guide pulley sits exactly under the largest cog and pushing the derailleur inward can\'t move it further.','Shift up and down to confirm it still reaches the largest cog easily.','Check the hanger and the spokes for damage.'],
+  tools:'Small Phillips screwdriver or 2 mm hex.',shop:'Spokes are bent or the derailleur cage is twisted.',
+  demo:{tab:'rd',rd:{barrel:0,hanger:0,H:0,L:3}}},
+ {id:'dropout',sys:['shift'],sev:'bad',t:'Chain drops off the smallest cog',sub:'The chain jams between the smallest cog and the frame.',
+  parts:['rd','frame'],time:'5 min',diff:'Easy',
+  causes:['<b>H limit screw too loose</b>.'],
+  check:'In the smallest cog, look from behind. The guide pulley should sit directly under the smallest cog, not outside it.',
+  steps:['Shift to the smallest cog and let the cable go slack (shift the lever fully).','Turn the H screw clockwise until the guide pulley lines up with the outer edge of the smallest cog.','Shift up one cog and back to confirm it still drops crisply.'],
+  tools:'Small Phillips screwdriver or 2 mm hex.',shop:'The frame paint near the dropout is gouged deeply.',
+  demo:{tab:'rd',rd:{barrel:0,hanger:0,H:-3,L:0},rear:0}},
+ {id:'hanger',sys:['shift'],sev:'warn',t:'Good in the middle, bad at the ends',sub:'Shifting went vague after the bike fell over or travelled in a car.',
+  parts:['hanger','rd'],time:'10–20 min',diff:'Medium',
+  causes:['<b>Bent derailleur hanger</b>. The error grows the further the pulley hangs below the hanger, so big cogs suffer most.'],
+  check:'Stand behind the bike and line your eye up with the cassette. The derailleur cage should be parallel to the cogs. If it toes in at the bottom, the hanger is bent.',
+  steps:['Remove the rear wheel; keep the derailleur attached.','Thread a hanger alignment gauge into the derailleur bolt hole (or take it to a shop).','Bend gently back in small steps, checking at 4 points around the rim.','Or replace the hanger: one bolt, one derailleur bolt. Fit it, then re-index the gears.'],
+  tools:'Hanger alignment gauge, or a replacement hanger and 4/5 mm hex.',shop:'You don\'t own an alignment gauge. Never bend a hanger by pulling on the derailleur body.',
+  demo:{tab:'rd',rd:{barrel:0,hanger:4,H:0,L:0},rear:'max'}},
+ {id:'fdrub',sys:['shift','noise'],sev:'ok',t:'Chain rubs the front derailleur',sub:'A scraping noise in some gears, often when you\'re on extreme cogs.',
+  parts:['fd','chain','cables'],time:'5–15 min',diff:'Easy',
+  causes:['<b>Cross-chaining</b>: big ring with the largest cogs, or small ring with the smallest cogs. The chain angle makes it touch the cage.','<b>Not using trim</b>: Claris and GRX levers have a half-click on the big ring to nudge the cage inward.','<b>Front cable slack</b> or limit screws off.'],
+  check:'Note which ring and cog rubs. Rub only at extremes is normal; rub across the middle cogs needs adjusting.',
+  steps:['Try the trim click first: on the big ring, a small push on the left shift lever moves the cage slightly inward.','Avoid big–big and small–small; the other ring has a similar gear with a straighter chain.','If it still rubs in the middle cogs, adjust the cable tension at the inline barrel adjuster in ¼ turns.','Set limit screws only if the extremes can\'t be cleared (see the FD bench).'],
+  tools:'Hands; small screwdriver for limit screws.',shop:'The derailleur cage is bent or the mount has slipped.',
+  demo:{tab:'fd',fd:{tension:0,L:0,H:0,trim:false},front:1,rear:'max'}},
+ {id:'drop',sys:['shift','drive'],sev:'warn',t:'Chain falls off the chainrings',sub:'Chain drops inside onto the frame on a downshift, or flies off outside on an upshift.',
+  parts:['fd','crankset','chain'],time:'10 min',diff:'Easy',
+  causes:['<b>L limit too loose</b>: cage swings too far inward and throws the chain off the small ring.','<b>H limit too loose</b>: cage throws the chain over the big ring.','<b>Bumpy terrain with a slack chain</b>: common on gravel.'],
+  check:'Shift front slowly while turning the cranks on a stand. Watch where the chain leaves the rings.',
+  steps:['Inside drop: small ring + largest cog. Turn the L screw clockwise until the inner cage plate is 0.5–1 mm from the chain.','Outside drop: big ring + smallest cog. Turn the H screw clockwise until the outer plate is 0.5–1 mm from the chain.','Test every front shift with the chain on each rear cog extreme.','On rough gravel, shift the front before a climb, not during it.'],
+  tools:'Small screwdriver.',shop:'The cage height or angle needs resetting, or the clamp slipped.',
+  demo:{tab:'fd',fd:{tension:0,L:-3,H:0,trim:false},front:0,rear:'max'}},
+ {id:'noisy',sys:['drive','noise'],sev:'ok',t:'Squeaky, grinding or noisy drivetrain',sub:'A squeal, crunch or general roughness that follows the pedals.',
+  parts:['chain','cassette','crankset','rd'],time:'15–40 min',diff:'Easy',
+  causes:['<b>Dry chain</b>: squeaks, worse after rain.','<b>Gritty chain</b>: crunching after gravel or mud.','<b>Worn chain</b>: rough, vague feel.','<b>Dry jockey wheels</b> in the rear derailleur.'],
+  check:'Run a fingertip along the chain. Black grit means clean before lubing.',
+  steps:['Wipe the chain with a rag while back-pedalling. For heavy grit, use a degreaser and a brush, then rinse and dry.','Apply one drop of lube to each roller on the inside of the chain.','Back-pedal 30 seconds, then wipe off the excess. Lube on the outside of the chain only collects dirt.','Measure wear with a checker.'],
+  tools:'Rags, degreaser, chain lube, chain checker.',shop:'Grinding persists with a clean chain: likely jockey wheel or BB bearings.',
+  demo:{tab:'gearing'}},
+ {id:'leverbar',sys:['brake'],sev:'bad',t:'Brake lever pulls almost to the bar',sub:'Mechanical discs: the lever travels a long way before the brake bites.',
+  parts:['calipers','cables','levers','rotors'],time:'10 min',diff:'Easy',
+  causes:['<b>Pad wear</b>: mechanical calipers don\'t self-adjust; every 0.5 mm of wear adds lever travel.','<b>Cable stretch</b>: new cables lengthen in the first weeks.'],
+  check:'Look into the caliper from above. Pads under 0.5 mm need replacing, not adjusting.',
+  steps:['Turn the inner-pad adjuster dial on the caliper (on models that have one) clockwise until the inner pad just touches the rotor, then back ½ click.','Turn the barrel adjuster at the lever or caliper anticlockwise to take up cable slack until the lever bites at about a third of its travel.','Spin the wheel. A light, occasional touch is fine; constant drag isn\'t.','If pads are below 0.5 mm, replace them and bed them in.'],
+  tools:'3 mm hex (pad bolts on some calipers), 5 mm hex for cable clamp.',shop:'The lever still hits the bar after adjusting. This is a safety problem.',
+  demo:{tab:'brakes',br:{mode:'mech',pad:0.9,stretch:1.5,barrel:0,inner:0,air:0,contam:false,warp:false}}},
+ {id:'spongy',sys:['brake'],sev:'bad',t:'Spongy or soft lever (hydraulic)',sub:'The lever squishes and the bite point wanders, often after the bike has been upside down.',
+  parts:['calipers','levers','cables'],time:'30–60 min',diff:'Medium',
+  causes:['<b>Air in the system</b>: air compresses, oil doesn\'t.','<b>Fluid leak</b> at a hose fitting or piston seal.','<b>Pads worn out</b>: pistons over-extended.'],
+  check:'Squeeze the lever hard. If it slowly creeps toward the bar, suspect a leak; if it feels soft but stops firmly, suspect air.',
+  steps:['Try the quick fix: tilt the bike so the lever is the highest point, tap the hose, and pump the lever slowly 20 times. Air rises to the reservoir.','If still soft, bleed with Shimano mineral oil (never DOT fluid) using a bleed funnel and syringe.','Check pads and fittings for oil. Contaminated pads must be replaced.'],
+  tools:'Shimano bleed kit and mineral oil, 7 mm/8 mm spanner, rags.',shop:'You see oil on the pads or rotor, or the lever goes all the way to the bar.',
+  demo:{tab:'brakes',br:{mode:'hydro',pad:3,stretch:0,barrel:0,inner:0,air:0.75,contam:false,warp:false}}},
+ {id:'weak',sys:['brake','noise'],sev:'warn',t:'Brakes squeal, judder or feel weak',sub:'Lever feels firm but the bike won\'t stop well, or brakes howl.',
+  parts:['calipers','rotors'],time:'15–30 min',diff:'Easy',
+  causes:['<b>Contaminated pads or rotor</b>: oil, lube, or tyre sealant.','<b>Pads not bedded in</b> after replacement.','<b>Glazed pads</b> from dragging on long descents.'],
+  check:'Smell the pads. Oily or shiny-black pads are contaminated.',
+  steps:['Clean the rotors with isopropyl alcohol and a clean rag. Never touch the braking surface with bare fingers.','If the pads are contaminated, replace them. Sanding rarely works.','Bed in: ride to 20 km/h and brake firmly to walking pace, 10–20 times per brake, without locking up.','Keep chain lube spray far away from the rotors.'],
+  tools:'Isopropyl alcohol, clean rags, new pads.',shop:'Juddering persists after cleaning and bedding. The rotor may be warped or the caliper loose.',
+  demo:{tab:'brakes',br:{mode:null,pad:3,stretch:0,barrel:0,inner:0,air:0,contam:true,warp:false}}},
+ {id:'rub',sys:['brake','noise','wheel'],sev:'ok',t:'Brake rubs or ticks every wheel turn',sub:'A "shhh" or "tick-tick" that matches wheel speed.',
+  parts:['rotors','calipers','thruaxle'],time:'10 min',diff:'Easy',
+  causes:['<b>Wheel not seated</b>: thru-axle not fully tightened.','<b>Caliper misaligned</b> with the rotor.','<b>Bent rotor</b>.'],
+  check:'Spin the wheel and look through the caliper toward a light. Watch the gaps either side of the rotor.',
+  steps:['Open the thru-axle, push the wheel firmly into the dropouts, and retighten to the printed torque.','Loosen both caliper mounting bolts slightly. Squeeze and hold the brake lever, then tighten the bolts alternately. Release and spin.','If one spot ticks, find it and gently straighten the rotor with a rotor truing tool.'],
+  tools:'5 mm hex (Torx T25 on some), rotor truing tool.',shop:'The rotor is visibly dished or the mount is damaged.',
+  demo:{tab:'brakes',br:{mode:null,pad:3,stretch:0,barrel:0,inner:0,air:0,contam:false,warp:true}}},
+ {id:'flat',sys:['wheel'],sev:'warn',t:'Flat tyre, or flat after flat',sub:'Slow leaks, sudden flats, or two neat slits in the tube.',
+  parts:['tires','wheels'],time:'15 min',diff:'Easy',
+  causes:['<b>Pinch flat</b> ("snakebite", two slits): pressure too low for a tube on rough ground.','<b>Puncture</b>: something still stuck in the tyre.','<b>Rim tape</b> damaged: hole on the inside of the tube.','<b>Tubeless sealant dried out</b> (tubeless setups).'],
+  check:'Find the hole in the tube. Two parallel slits = pinch; a single hole on the outside = puncture; on the inside = rim tape.',
+  steps:['Open the thru-axle and remove the wheel.','Unseat the tyre with levers, pull the tube, find the hole.','Run your fingers carefully inside the tyre to find the culprit, matching the tube\'s hole to the tyre position.','Fit a new tube with a little air in it, seat the tyre by hand, check no tube is trapped under the bead.','Inflate to the pressure from the wheels bench. Tubeless: top up sealant every 2–4 months.'],
+  tools:'Tyre levers, pump, spare tube or plug kit.',shop:'The tyre has a cut big enough to see the tube through.',
+  demo:{tab:'wheels',wh:{psi:24,kg:85,tubeless:false,terrain:2}}},
+ {id:'wobble',sys:['wheel'],sev:'warn',t:'Wheel wobbles or rubs the frame',sub:'The rim wavers side to side as it spins.',
+  parts:['wheels','hubs','thruaxle'],time:'10–40 min',diff:'Medium',
+  causes:['<b>Thru-axle loose</b>: the whole wheel shifts.','<b>Loose or broken spoke</b>.','<b>Hub bearing play</b>.'],
+  check:'Squeeze pairs of spokes all round the wheel. A slack one feels different immediately.',
+  steps:['Tighten the thru-axle and re-check.','Find the wobble with a zip tie on the frame as a pointer. Where the rim moves toward the tie, loosen the spoke on that side ¼ turn and tighten the opposite one ¼ turn.','Replace any broken spoke before truing.','Rock the rim sideways: play there is the hub, which needs a bearing service.'],
+  tools:'Spoke key that fits your nipples, zip tie.',shop:'More than one broken spoke, or a wobble over ~2 mm.',
+  demo:{tab:'wheels'}},
+ {id:'freehub',sys:['drive','wheel'],sev:'bad',t:'Pedals spin without driving the wheel',sub:'Pedals turn but the bike doesn\'t go, or pedals keep turning while you coast.',
+  parts:['hubs','cassette'],time:'30 min',diff:'Medium',
+  causes:['<b>Freehub pawls stuck</b>: old grease gone thick in the cold (won\'t engage), or seized (cranks turn when coasting).'],
+  check:'Lift the back wheel and pedal by hand. Listen for the click when you stop.',
+  steps:['Remove the cassette and the axle end caps.','Pull the freehub body; clean the pawls and the ratchet ring.','Use a thin freehub-specific grease or light oil on the pawls. Thick grease is the usual cause of failure to engage.','Reassemble and test.'],
+  tools:'Cassette lockring tool, chain whip, hub-specific tools.',shop:'The pawls or ratchet teeth are chipped.',
+  demo:{tab:'wheels'}},
+ {id:'headset',sys:['steer','noise'],sev:'warn',t:'Clunk when braking hard, or steering knock',sub:'A knock from the front over bumps or under front braking.',
+  parts:['headset','cockpit','fork'],time:'10 min',diff:'Easy',
+  causes:['<b>Headset preload too loose</b>.','<b>Thru-axle loose</b> (feels similar).'],
+  check:'Hold the front brake, put fingers around the gap between the top of the head tube and the spacer, rock the bike. Movement there is headset play.',
+  steps:['Loosen the two stem clamp bolts (side of stem) so the stem can slide.','Tighten the top cap bolt in ⅛ turns until the play goes and the bar still swings freely.','Line the stem up with the front wheel.','Tighten the stem bolts alternately to the torque printed on the stem (usually ~5 Nm).'],
+  tools:'4 or 5 mm hex, torque wrench.',shop:'Play remains with the top cap snug: the bearings or the compression ring are worn.',
+  demo:{tab:'steer',st:{preload:12}}},
+ {id:'notchy',sys:['steer'],sev:'warn',t:'Steering feels tight or notchy',sub:'The bar doesn\'t fall to the side freely, or "clicks" into straight-ahead.',
+  parts:['headset'],time:'10–40 min',diff:'Medium',
+  causes:['<b>Preload too tight</b>.','<b>Worn or corroded bearings</b>: notching in one spot.'],
+  check:'Lift the front wheel and swing the bar slowly. It should be smooth and fall to one side under its own weight.',
+  steps:['Loosen the stem bolts, back off the top cap ⅛ turn, re-tighten the stem bolts.','If notching remains in the straight-ahead position, the lower bearing is worn. Replace the cartridge bearings (same size as listed on the headset bench).'],
+  tools:'4/5 mm hex, new cartridge bearings.',shop:'The bearing seat in the frame looks damaged.',
+  demo:{tab:'steer',st:{preload:92}}},
+ {id:'creak',sys:['noise','steer','drive'],sev:'ok',t:'Creak or click while pedalling',sub:'A rhythmic creak once per pedal stroke or per wheel turn.',
+  parts:['bb','pedals','crankset','seatpost','saddle','thruaxle'],time:'15–60 min',diff:'Medium',
+  causes:['<b>Pedal threads dry</b> (clicks once per stroke).','<b>Thru-axles</b> not tight or not greased.','<b>Seatpost or saddle rails</b>: test by pedalling out of the saddle. If the noise stops, it\'s up there.','<b>Bottom bracket</b>: only after the others are ruled out.','<b>Chainring bolts</b> loose.'],
+  check:'Work by elimination. Pedal standing: silence points to the seat area. Pedal with one leg: noise only on one side points to that pedal or crank.',
+  steps:['Remove pedals, grease threads, refit (left pedal is reverse-threaded).','Remove both thru-axles, wipe, grease lightly, refit to torque.','Remove seatpost, clean, grease (or carbon paste for carbon), refit; check saddle rail bolts.','Check chainring bolts and crank pinch bolts.','Last: remove the threaded BB cups, clean, grease threads, refit to torque.'],
+  tools:'Pedal spanner or 8 mm hex, grease, BB tool for your cups.',shop:'You hear grinding (not creaking) from the BB when spinning without the chain.',
+  demo:{tab:'steer',st:{preload:50}}},
+ {id:'saddle',sys:['steer'],sev:'ok',t:'Seatpost slips or saddle tilts',sub:'Saddle slowly sinks or its nose drops during rides.',
+  parts:['seatpost','saddle'],time:'10 min',diff:'Easy',
+  causes:['<b>Clamp under-torqued</b>.','<b>Wrong compound</b>: too much grease on a post that needs friction paste.','<b>Rail clamp bolts</b> loose.'],
+  check:'Mark the post at the clamp with tape and ride.',
+  steps:['Clean the post and seat tube.','Apply a thin layer of friction (carbon assembly) paste.','Set height, tighten the seat clamp to the printed torque (often 5–6 Nm).','Tighten the saddle rail bolts evenly to their printed torque.'],
+  tools:'Torque wrench, 4/5 mm hex, friction paste.',shop:'The post still slips at the maximum torque.',
+  demo:null},
+ {id:'shifter',sys:['shift'],sev:'warn',t:'Shift lever has no resistance or won\'t click',sub:'The lever flops, or the derailleur sits stuck on the smallest cog.',
+  parts:['levers','cables','rd'],time:'20–40 min',diff:'Medium',
+  causes:['<b>Snapped inner cable</b>, usually frayed inside the lever head.','<b>Cable clamp bolt slipped</b> at the derailleur.'],
+  check:'Look at the cable at the derailleur clamp. If it\'s slack and loose, check the lever end.',
+  steps:['Shift the lever to the smallest-cog position.','Peel back the hood rubber and pull the old cable head out of the lever.','Feed a new inner cable through the lever and existing housing to the derailleur.','Pull taut, clamp at the derailleur, cut and crimp the end, then index the gears.'],
+  tools:'Cable cutters, 5 mm hex, end crimps.',shop:'The lever itself is broken internally; levers aren\'t serviceable.',
+  demo:{tab:'rd',rd:{barrel:0,hanger:0,H:0,L:0}}},
+];
+
+/* ---------- main SVG ---------- */
+const bike = $('#bike');
+const svgNS='http://www.w3.org/2000/svg';
+function wheelSVG(id,c){
+  const sp=[]; const n=24;
+  for(let i=0;i<n;i++){
+    const a=i/n*2*Math.PI, side=i%2?1:-1;
+    const h=polar([0,0],9,a+side*0.6), r=polar([0,0],158,a);
+    sp.push(`M${P(h)}L${P(r)}`);
+  }
+  const tread=`<circle r="180" stroke-dasharray="3 5" stroke-width="5" class="s-rubber" opacity=".9"/>`;
+  return `<g transform="translate(${c[0]},${c[1]})">
+    <g class="part" data-part="tires"><circle r="172" stroke-width="19" class="s-rubber"/></g>
+    <g class="spin" id="${id}Spin">
+      <g class="part" data-part="tires">${tread}</g>
+      <g class="part" data-part="rotors" opacity=".42"><circle r="83" stroke-width="7" stroke="var(--rotor)" fill="none" stroke-dasharray="10 5"/><circle r="70" stroke-width="2" stroke="var(--rotor)" fill="none"/></g>
+      <g class="part" data-part="wheels"><circle r="159" stroke-width="8" class="s-metal"/><path d="${sp.join('')}" stroke="var(--metal-d)" stroke-width="1.2" fill="none"/></g>
+    </g>
+    <g class="part" data-part="hubs"><circle r="13" class="f-metal"/><circle r="5" class="f-metald"/></g>
+  </g>`;
+}
+function buildBike(){
+  const [R,F,BB]=[G.R,G.F,G.BB];
+  const rc=polar(R,88,deg(-12)), fc=polar(F,88,deg(205));
+  bike.innerHTML=`
+  <defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--motion)"/></marker></defs>
+  <line x1="20" y1="603" x2="980" y2="603" class="ground"/>
+  ${wheelSVG('rw',R)}${wheelSVG('fw',F)}
+  <!-- cables -->
+  <g class="part" data-part="cables">
+    <path class="cable" d="M736,150 C760,190 745,215 712,226"/>
+    <path class="cable inside" d="M668,232 L456,456 L300,431"/>
+    <path class="cable inside" d="M668,240 L470,446 L430,420"/>
+    <path class="cable" d="M300,431 C270,440 262,448 250,452"/>
+    <path class="cable" d="M712,226 C705,280 690,330 ${fc[0]+4},${fc[1]-8}"/>
+  </g>
+  <!-- calipers (far side, faded) -->
+  <g class="part" data-part="calipers" id="calipers" opacity=".75">
+    <g transform="translate(${P(rc)}) rotate(78)"><rect x="-18" y="-9" width="36" height="18" rx="5" class="f-metald"/><rect class="caliper-pad" x="-12" y="-2" width="24" height="4" fill="var(--metal)"/></g>
+    <g transform="translate(${P(fc)}) rotate(115)"><rect x="-18" y="-9" width="36" height="18" rx="5" class="f-metald"/><rect class="caliper-pad" x="-12" y="-2" width="24" height="4" fill="var(--metal)"/></g>
+    <line x1="${fc[0]}" y1="${fc[1]}" x2="${fc[0]+50}" y2="${fc[1]-2}" stroke="var(--metal-d)" stroke-width="4"/>
+  </g>
+  <!-- frame -->
+  <g class="part" data-part="frame">
+    <path class="s-frame" stroke-width="9" d="M${P(BB)} L236,422"/>
+    <path class="s-frame" stroke-width="7" d="M378,234 L236,416"/>
+    <path class="s-frame" stroke-width="12" d="M${P(BB)} L373,215"/>
+    <path class="s-frame" stroke-width="12" d="M376,232 L650,176"/>
+    <path class="s-frame" stroke-width="16" d="M452,456 L668,224"/>
+    <path class="s-frame" stroke-width="20" d="M647,166 L670,232"/>
+    <circle cx="${R[0]}" cy="${R[1]}" r="13" fill="none" stroke="var(--frame)" stroke-width="5"/>
+  </g>
+  <!-- seatpost & saddle -->
+  <g class="part" data-part="seatpost"><path d="M373,215 L342,112" class="s-metal" stroke-width="9"/><rect x="364" y="210" width="20" height="9" rx="3" class="f-metald" transform="rotate(-17 374 214)"/></g>
+  <g class="part" data-part="saddle"><path d="M287,104 C310,94 352,96 388,101 C386,110 340,115 292,113 Z" class="f-ink"/><path d="M318,113 L360,113" class="s-metal" stroke-width="2"/></g>
+  <!-- fork -->
+  <g class="part" data-part="fork"><path d="M668,232 C688,292 708,352 752,414" class="s-frame" stroke-width="12"/><rect x="657" y="228" width="24" height="12" rx="4" fill="var(--frame)" transform="rotate(19 669 234)"/></g>
+  <!-- headset -->
+  <g class="part" data-part="headset"><rect x="636" y="156" width="22" height="8" rx="2" class="f-metald" transform="rotate(19 647 160)"/><rect x="660" y="230" width="22" height="7" rx="2" class="f-metald" transform="rotate(19 671 233)"/><rect x="637" y="146" width="18" height="10" rx="1" class="f-metal" transform="rotate(19 646 151)"/></g>
+  <!-- stem & bar -->
+  <g class="part" data-part="cockpit"><path d="M640,146 L688,139" class="s-metal" stroke-width="11"/><circle cx="639" cy="146" r="7" class="f-metald"/>
+    <path d="M688,139 C716,134 732,142 735,162 C739,186 728,204 703,206 L690,205" fill="none" stroke="var(--ink)" stroke-width="8" stroke-linecap="round"/><circle cx="688" cy="139" r="7" class="f-metald"/></g>
+  <!-- levers -->
+  <g class="part" data-part="levers"><path d="M703,136 C716,124 734,128 738,140 L728,152 Z" class="f-ink"/><g id="leverBlade"><path d="M729,146 C736,162 742,182 738,200" fill="none" stroke="var(--metal-d)" stroke-width="5" stroke-linecap="round"/></g></g>
+  <!-- cassette -->
+  <g class="part" data-part="cassette" id="cassetteG"></g>
+  <!-- chain -->
+  <g class="part" data-part="chain"><path id="chainBase" fill="none" stroke="var(--chain)" stroke-width="5" stroke-linejoin="round"/><path id="chainLinks" fill="none" stroke="var(--panel)" stroke-width="2" stroke-dasharray="3.3 3.3"/></g>
+  <!-- rear derailleur & hanger -->
+  <g class="part" data-part="hanger"><path d="M228,426 L240,436 L236,446 L226,438 Z" fill="var(--metal)" stroke="var(--metal-d)"/></g>
+  <g class="part" data-part="rd" id="rdG"></g>
+  <!-- crankset (non-drive arm behind) -->
+  <g class="part" data-part="crankset" id="crankBack" opacity=".35"></g>
+  <g class="part" data-part="bb"><circle cx="${BB[0]}" cy="${BB[1]}" r="16" fill="var(--frame)"/></g>
+  <g class="part" data-part="crankset" id="crankG"></g>
+  <g class="part" data-part="pedals" id="pedalG"></g>
+  <!-- front derailleur -->
+  <g class="part" data-part="fd" id="fdG"></g>
+  <!-- thru-axles -->
+  <g class="part" data-part="thruaxle"><circle cx="${F[0]}" cy="${F[1]}" r="4" fill="var(--accent)"/><circle cx="${R[0]}" cy="${R[1]}" r="4" fill="var(--accent)"/></g>
+  <g id="labelsG" style="display:none"></g>
+  <g id="calloutG"></g>`;
+  drawLabels();
+}
+
+/* chain loop between circles with wrap directions */
+function trav(c,p,r,w){const rx=(p[0]-c[0])/r, ry=(p[1]-c[1])/r; return [-w*ry, w*rx];}
+function tangent(A,B){
+  const dx=B.c[0]-A.c[0], dy=B.c[1]-A.c[1], d=Math.hypot(dx,dy), ux=dx/d, uy=dy/d; let best=null;
+  for(const s of [1,-1]){ const R2=s*B.r, cc=(A.r-R2)/d; if(Math.abs(cc)>1) continue; const h=Math.sqrt(1-cc*cc);
+    for(const k of [1,-1]){ const nx=ux*cc-k*h*uy, ny=uy*cc+k*h*ux;
+      const p1=[A.c[0]+A.r*nx, A.c[1]+A.r*ny], p2=[B.c[0]+R2*nx, B.c[1]+R2*ny];
+      let tx=p2[0]-p1[0], ty=p2[1]-p1[1]; const L=Math.hypot(tx,ty); tx/=L; ty/=L;
+      const t1=trav(A.c,p1,A.r,A.w), t2=trav(B.c,p2,B.r,B.w);
+      const sc=tx*t1[0]+ty*t1[1]+tx*t2[0]+ty*t2[1];
+      if(!best||sc>best.sc) best={sc,p1,p2};
+  }}
+  return best;
+}
+function loopPath(cs){
+  const n=cs.length, T=cs.map((c,i)=>tangent(c,cs[(i+1)%n]));
+  let d=`M${P(T[n-1].p2)}`;
+  for(let i=0;i<n;i++){
+    const C=cs[i], a=T[(i-1+n)%n].p2, b=T[i].p1;
+    let a1=Math.atan2(a[1]-C.c[1],a[0]-C.c[0]), a2=Math.atan2(b[1]-C.c[1],b[0]-C.c[0]);
+    let delta = C.w>0 ? a2-a1 : a1-a2; delta=((delta%(2*Math.PI))+2*Math.PI)%(2*Math.PI);
+    d+=`A${C.r.toFixed(2)},${C.r.toFixed(2)} 0 ${delta>Math.PI?1:0} ${C.w>0?1:0} ${P(b)}`;
+    d+=`L${P(T[i].p2)}`;
+  }
+  return d;
+}
+
+let chainLen=0;
+function drawDrive(){
+  const R=G.R, BB=G.BB;
+  const rr=pr(ring())*MM, rcog=pr(cog())*MM, rmax=pr(S.cass.cogs.at(-1))*MM;
+  // cassette
+  $('#cassetteG').innerHTML=S.cass.cogs.slice().reverse().map(t=>{const r=pr(t)*MM, on=t===cog();
+    return `<circle cx="${R[0]}" cy="${R[1]}" r="${r.toFixed(1)}" fill="none" stroke="${on?'var(--ink)':'var(--metal)'}" stroke-width="${on?2.6:1.4}" ${on?'':'opacity=".75"'} stroke-dasharray="${on?'2 1.3':''}"/>`}).join('')
+    +`<g id="cogSpin"><line x1="${R[0]}" y1="${R[1]-rcog}" x2="${R[0]}" y2="${R[1]-rcog+5}" stroke="var(--accent)" stroke-width="2"/></g>`;
+  // derailleur pulleys
+  const pulR=pr(11)*MM;
+  const gp=[R[0]-3, R[1]+rcog+11], tp=[R[0]+9+ (rmax-rcog)*0.25, R[1]+rmax+52];
+  const hangerPt=[236,440];
+  const knuckle=[gp[0]+10,gp[1]-10];
+  $('#rdG').innerHTML=`
+    <path d="M${P(hangerPt)} L${hangerPt[0]-22},${hangerPt[1]+12} L${knuckle[0]-14},${knuckle[1]+6} L${P(knuckle)} Z" fill="var(--metal-d)" stroke="var(--ink)" stroke-width="1"/>
+    <path d="M${gp[0]-3},${gp[1]-9} L${tp[0]+8},${tp[1]+3} L${tp[0]-2},${tp[1]+11} L${gp[0]-12},${gp[1]-1} Z" fill="var(--metal)" stroke="var(--ink)" stroke-width="1" opacity=".9"/>
+    <circle cx="${gp[0]}" cy="${gp[1]}" r="${pulR+1}" fill="var(--panel)" stroke="var(--ink)" stroke-width="1.5"/>
+    <circle cx="${tp[0]}" cy="${tp[1]}" r="${pulR+1}" fill="var(--panel)" stroke="var(--ink)" stroke-width="1.5"/>`;
+  // chain
+  const d=loopPath([{c:BB,r:rr,w:1},{c:tp,r:pulR,w:1},{c:gp,r:pulR,w:-1},{c:R,r:rcog,w:1}]);
+  $('#chainBase').setAttribute('d',d); $('#chainLinks').setAttribute('d',d);
+  try{chainLen=$('#chainBase').getTotalLength();}catch(e){chainLen=1000;}
+  // front derailleur (side view: cage above big ring, rear part)
+  const rb=pr(S.rings[1])*MM;
+  const a1=deg(-118), a2=deg(-158);
+  const p1=polar(BB,rb+5,a1), p2=polar(BB,rb+5,a2), q2=polar(BB,rb+14,a2), q1=polar(BB,rb+15,a1);
+  $('#fdG').innerHTML=`<path d="M${P(p1)} A${rb+5},${rb+5} 0 0 0 ${P(p2)} L${P(q2)} A${rb+14},${rb+14} 0 0 1 ${P(q1)} Z" fill="var(--metal)" stroke="var(--ink)" stroke-width="1"/>
+    <rect x="${q1[0]-4}" y="${q1[1]-18}" width="10" height="18" rx="2" class="f-metald" transform="rotate(-17 ${q1[0]} ${q1[1]})"/>`;
+  drawCrank();
+  updateReadouts();
+}
+function drawCrank(){
+  const BB=G.BB, a=S.crankA;
+  const rings=S.rings.map(t=>pr(t)*MM);
+  const spider=[0,1,2,3].map(i=>polar(BB,rings[0]+2,a+deg(45)+i*Math.PI/2));
+  const end=polar(BB,G.CRANK,a), endB=polar(BB,G.CRANK,a+Math.PI);
+  $('#crankG').innerHTML = rings.map((r,i)=>`<circle cx="${BB[0]}" cy="${BB[1]}" r="${r.toFixed(1)}" fill="none" stroke="${i===S.front?'var(--ink)':'var(--metal-d)'}" stroke-width="${i===S.front?3.2:2.2}" stroke-dasharray="2.2 1.2"/>`).join('')
+    + spider.map(p=>`<line x1="${BB[0]}" y1="${BB[1]}" x2="${P(p).split(',')[0]}" y2="${P(p).split(',')[1]}" stroke="var(--metal-d)" stroke-width="5" stroke-linecap="round"/>`).join('')
+    + `<line x1="${BB[0]}" y1="${BB[1]}" x2="${end[0].toFixed(1)}" y2="${end[1].toFixed(1)}" stroke="var(--ink)" stroke-width="10" stroke-linecap="round"/><circle cx="${BB[0]}" cy="${BB[1]}" r="7" class="f-metal"/>`;
+  $('#crankBack').innerHTML=`<line x1="${BB[0]}" y1="${BB[1]}" x2="${endB[0].toFixed(1)}" y2="${endB[1].toFixed(1)}" stroke="var(--ink)" stroke-width="9" stroke-linecap="round"/><rect x="${endB[0]-13}" y="${endB[1]-4}" width="26" height="8" rx="2" class="f-ink"/>`;
+  $('#pedalG').innerHTML=`<rect x="${(end[0]-14).toFixed(1)}" y="${(end[1]-4).toFixed(1)}" width="28" height="8" rx="2" class="f-ink"/>`;
+}
+
+function drawLabels(){
+  $('#labelsG').innerHTML=Object.entries(PARTS).map(([id,p])=>{
+    const w=p.name.length*6.6+10;
+    return `<g class="lbl" data-part="${id}" style="cursor:pointer"><line x1="${p.at[0]}" y1="${p.at[1]}" x2="${p.lab[0]+w/2}" y2="${p.lab[1]}" stroke="var(--muted)" stroke-width="1"/><circle cx="${p.at[0]}" cy="${p.at[1]}" r="2.5" fill="var(--accent)"/><rect x="${p.lab[0]}" y="${p.lab[1]-9}" width="${w}" height="17" rx="3" class="lbl-bg"/><text x="${p.lab[0]+5}" y="${p.lab[1]+3.5}" class="t-label">${p.name}</text></g>`;
+  }).join('');
+}
+
+/* ---------- selection / inspector ---------- */
+let selected=null;
+function highlight(ids){
+  $$('#bike .part').forEach(el=>el.classList.toggle('hl', ids.includes(el.dataset.part)));
+  bike.classList.toggle('focus', ids.length>0);
+}
+function callout(id){
+  const g=$('#calloutG');
+  if(!id){g.innerHTML='';return;}
+  const p=PARTS[id], w=p.name.length*7.2+14;
+  let x=p.lab[0], y=p.lab[1];
+  g.innerHTML=`<line x1="${p.at[0]}" y1="${p.at[1]}" x2="${x+w/2}" y2="${y}" stroke="var(--accent)" stroke-width="1.5"/><circle cx="${p.at[0]}" cy="${p.at[1]}" r="4" fill="var(--accent)"/><rect x="${x}" y="${y-11}" width="${w}" height="21" rx="3" fill="var(--accent)"/><text x="${x+7}" y="${y+4}" style="font:600 12px var(--f-mono);fill:var(--accent-ink)">${p.name}</text>`;
+}
+function select(id,scroll){
+  stopTrace();
+  selected=id; highlight(id?[id]:[]); callout(id); renderInspector();
+  $$('#groupChips .chip').forEach(c=>c.setAttribute('aria-pressed','false'));
+  if(scroll) $('#model').scrollIntoView({behavior:reduceMotion?'auto':'smooth',block:'start'});
+}
+function renderInspector(){
+  const box=$('#inspector');
+  if(!selected){
+    box.innerHTML=`<div class="grp">Inspector</div><h3>Tap a part</h3><p class="note">Pick any part on the drawing or from this list to see what it does, what it connects to, and the problems it causes.</p>
+      ${Object.entries(GROUPS).map(([g,n])=>`<div><div class="eyebrow" style="margin:6px 0 4px">${n}</div><div class="partlist">${Object.entries(PARTS).filter(([,p])=>p.g===g).map(([id,p])=>`<button data-sel="${id}">${p.name}</button>`).join('')}</div></div>`).join('')}`;
+    return;
+  }
+  const p=PARTS[selected];
+  const probs=p.probs.map(pid=>PROBS.find(x=>x.id===pid)).filter(Boolean);
+  box.innerHTML=`<div class="row" style="justify-content:space-between"><span class="grp">${GROUPS[p.g]}</span><button class="btn" data-sel="">All parts</button></div>
+   <h3>${p.name}</h3>
+   <dl>
+    <div><dt>What it does</dt><dd>${p.does}</dd></div>
+    <div><dt>On this bike</dt><dd>${p.spec}</dd></div>
+    <div><dt>Works with</dt><dd class="linkchips">${p.links.map(l=>`<button class="linkchip" data-sel="${l}">${PARTS[l].name}</button>`).join('')}</dd></div>
+    <div><dt>Quick check</dt><dd>${p.check}</dd></div>
+    ${probs.length?`<div><dt>Problems it causes</dt><dd>${probs.map(x=>`<button class="problink" data-prob="${x.id}">${x.t} →</button>`).join('')}</dd></div>`:''}
+   </dl>
+   ${p.tab?`<button class="btn primary" data-tab="${p.tab}">Open the ${TABS.find(t=>t.id===p.tab).name.toLowerCase()} bench</button>`:''}`;
+}
+document.addEventListener('click',e=>{
+  const s=e.target.closest('[data-sel]'); if(s){select(s.dataset.sel||null, !!e.target.closest('.fix'));return;}
+  const pb=e.target.closest('[data-prob]'); if(pb){openProblem(pb.dataset.prob);return;}
+  const tb=e.target.closest('[data-tab]'); if(tb){openTab(tb.dataset.tab,true);return;}
+});
+bike.addEventListener('click',e=>{
+  const el=e.target.closest('.part,.lbl'); if(!el) {select(null);return;}
+  select(el.dataset.part);
+});
+$('#groupChips').innerHTML=`<button class="chip" data-g="" aria-pressed="false">All</button>`+Object.entries(GROUPS).map(([g,n])=>`<button class="chip" data-g="${g}" aria-pressed="false">${n}</button>`).join('');
+$('#groupChips').addEventListener('click',e=>{
+  const c=e.target.closest('.chip'); if(!c) return;
+  stopTrace(); selected=null; callout(null); renderInspector();
+  const g=c.dataset.g; $$('#groupChips .chip').forEach(x=>x.setAttribute('aria-pressed',String(x===c&&!!g)));
+  highlight(g?Object.keys(PARTS).filter(k=>PARTS[k].g===g):[]);
+});
+$('#labelsBtn').addEventListener('click',e=>{
+  const on=e.currentTarget.getAttribute('aria-pressed')!=='true';
+  e.currentTarget.setAttribute('aria-pressed',on); $('#labelsG').style.display=on?'':'none';
+});
+
+/* ---------- controls ---------- */
+function setFront(i){S.front=i; $('#ring0').setAttribute('aria-pressed',i===0); $('#ring1').setAttribute('aria-pressed',i===1); drawDrive(); refreshBench();}
+function setRear(i){S.rear=Math.max(0,Math.min(S.cass.cogs.length-1,i)); drawDrive(); refreshBench();}
+$('#ring0').onclick=()=>setFront(0); $('#ring1').onclick=()=>setFront(1);
+$('#rearEasier').onclick=()=>setRear(S.rear+1); $('#rearHarder').onclick=()=>setRear(S.rear-1);
+$('#cadence').oninput=e=>{S.cadence=+e.target.value; $('#cadOut').textContent=S.cadence; updateReadouts();};
+function setPedal(on){S.pedaling=on; $('#pedalBtn').textContent=on?'Stop pedalling':'Pedal'; if(on&&S.v<0.5) S.v=0.5; kick();}
+$('#pedalBtn').onclick=()=>setPedal(!S.pedaling);
+function setBrake(v){S.brake=v; $('#brakeBtn').setAttribute('aria-pressed',v>0); $('#brakeBtn').classList.toggle('on',v>0); bike.classList.toggle('braking',v>0); kick();}
+const bb=$('#brakeBtn');
+bb.addEventListener('pointerdown',e=>{e.preventDefault();setBrake(1);});
+['pointerup','pointerleave','pointercancel'].forEach(t=>bb.addEventListener(t,()=>{if(S.brake&&!traceHold)setBrake(0);}));
+bb.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();setBrake(1);}});
+bb.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter')setBrake(0);});
+document.addEventListener('keydown',e=>{ if((e.key==='b'||e.key==='B')&&!e.repeat&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) setBrake(1);});
+document.addEventListener('keyup',e=>{ if(e.key==='b'||e.key==='B') setBrake(0);});
+
+$('#specSel').onchange=e=>{applyBuild(e.target.value); drawDrive(); renderBench();};
+$('#ringSel').onchange=e=>{S.rings=RINGS[e.target.value]; drawDrive(); refreshBench();};
+$('#cassSel').onchange=e=>{S.cass=CASS[e.target.value]; S.rear=Math.min(S.rear,S.cass.cogs.length-1); drawDrive(); renderBench();};
+
+function vDrive(){return S.cadence/60*ratio()*CIRC;}
+function updateReadouts(){
+  $('#roGear').textContent=`${ring()}×${cog()}`;
+  $('#roRatio').textContent=fmt(ratio(),2);
+  $('#roDev').innerHTML=`${fmt(ratio()*CIRC,1)} <small>m</small>`;
+  $('#roSpeed').innerHTML=`${fmt(S.v*3.6,1)} <small>km/h</small>`;
+  $('#cogOut').textContent=`${cog()}T`;
+  const hub=$('#roHub');
+  const st = S.v<0.05 ? ['info','Stopped'] : (S.engaged ? ['ok','Driving'] : ['warn','Freewheeling']);
+  hub.innerHTML=`<span class="pill ${st[0]}">${st[1]}</span>`;
+  $('#rearEasier').disabled=S.rear>=S.cass.cogs.length-1; $('#rearHarder').disabled=S.rear<=0;
+}
+
+/* ---------- animation loop ---------- */
+const AF=0.25; let last=0, running=false, roTimer=0;
+function kick(){ if(!running){running=true; last=performance.now(); requestAnimationFrame(tick);} }
+function tick(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  const vd=vDrive();
+  let crankRate=0;
+  if(S.brake>0){ S.v=Math.max(0,S.v-S.brake*(BR.mode==='hydro'?7:5.5)*dt*brakeEffect()); }
+  if(S.pedaling){
+    if(S.brake>0){ crankRate=Math.min(S.cadence/60, S.v/(ratio()*CIRC)); S.engaged=true; }
+    else if(S.v<vd-0.02){ S.v=Math.min(vd,S.v+1.8*dt); crankRate=S.v/(ratio()*CIRC); S.engaged=true; }
+    else if(S.v>vd+0.05){ S.v-=(0.06+0.004*S.v*S.v)*dt; crankRate=S.cadence/60; S.engaged=false; }
+    else { S.v=vd; crankRate=S.cadence/60; S.engaged=true; }
+  } else { S.v=Math.max(0,S.v-(0.06+0.004*S.v*S.v)*dt); S.engaged=false; }
+  const chainSpeedMm = crankRate*ring()*PITCH;               // mm/s
+  S.crankA += crankRate*2*Math.PI*dt*AF;
+  S.chainOff -= chainSpeedMm*MM*dt*AF;
+  S.cogA += chainSpeedMm/(cog()*PITCH)*360*dt*AF;
+  S.wheelA += S.v/CIRC*360*dt*AF;
+  $('#rwSpin').setAttribute('transform',`rotate(${(S.wheelA%360).toFixed(2)})`);
+  $('#fwSpin').setAttribute('transform',`rotate(${(S.wheelA%360).toFixed(2)})`);
+  $('#cogSpin').setAttribute('transform',`rotate(${(S.cogA%360).toFixed(2)} ${G.R[0]} ${G.R[1]})`);
+  $('#chainLinks').setAttribute('stroke-dashoffset',(S.chainOff%6.6).toFixed(2));
+  $('#leverBlade').setAttribute('transform',`rotate(${S.brake*13} 729 146)`);
+  drawCrank();
+  if(now-roTimer>150){roTimer=now; updateReadouts(); benchTick();}
+  benchFrame(dt);
+  const idle = !S.pedaling && S.v<0.001 && !S.brake && !benchAnimating();
+  if(idle){ running=false; updateReadouts(); return; }
+  requestAnimationFrame(tick);
+}
+
+/* ---------- systems together (trace runs) ---------- */
+const PATHS = {
+ power:{name:'Pedal power → ground',steps:[
+  ['pedals','Your foot pushes the pedal down. Peak force arrives around the 3 o\'clock position.',()=>setPedal(true)],
+  ['crankset','The crank arm is a lever: 170 mm of arm turns that force into torque on the axle.'],
+  ['bb','The bottom bracket bearings let the axle spin while holding it firmly in the frame.'],
+  ['chain','The chainring pulls the top run of chain tight. Only the top run carries load.'],
+  ['cassette','The chain pulls the selected cog. A smaller cog turns more times per pedal stroke: harder, faster.'],
+  ['hubs','Pawls in the freehub catch the hub shell and pass the torque into the wheel.'],
+  ['wheels','The hub pulls on the spokes, the spokes pull the rim around.'],
+  ['tires','The tyre pushes back against the ground at the contact patch, and the bike moves forward.'],
+  ['frame','Meanwhile the frame resists the chain\'s pull between BB and rear axle. A stiff frame wastes less.'],
+ ]},
+ shift:{name:'Rear shift',steps:[
+  ['levers','Swing the right lever inward. The shifter mechanism pulls a fixed length of cable per click (its "index").'],
+  ['cables','The cable slides inside its housing, through the frame, to the rear derailleur.'],
+  ['rd','The extra pull moves the derailleur parallelogram inboard, swinging the jockey wheels under the next bigger cog.',()=>{setPedal(true); setRear(Math.min(S.rear+1,S.cass.cogs.length-1));}],
+  ['chain','The chain is pushed sideways. Ramps on the bigger cog catch it, and it climbs over in less than one pedal stroke.'],
+  ['cassette','Now it\'s on a bigger cog: easier gear, slower speed per pedal turn.'],
+  ['rd','The derailleur cage also swings forward to take up the slack, keeping the chain taut on the bottom run.'],
+  ['hanger','All of this depends on the hanger holding the derailleur exactly parallel to the cogs.'],
+ ]},
+ brake:{name:'Braking',steps:[
+  ['levers','Pull the lever. Its leverage multiplies your finger force several times.',()=>{setPedal(false); setBrake(1); traceHold=true;}],
+  ['cables','Mechanical: the cable pulls the caliper arm. Hydraulic: a piston pushes mineral oil down the hose.'],
+  ['calipers','The caliper squeezes pads onto both sides of the rotor.'],
+  ['rotors','Friction turns your speed into heat in the rotor and pads.'],
+  ['hubs','The rotor is bolted to the hub, so the hub slows.'],
+  ['wheels','The hub drags on the spokes, which slow the rim.'],
+  ['tires','The tyre\'s grip on the ground is the final limit. Brake harder than that and it skids.'],
+  ['fork','At the front, braking force tries to bend the fork backwards and load the headset. That\'s why headset play shows up as a clunk when you brake.',()=>{traceHold=false; setBrake(0);}],
+ ]},
+ steer:{name:'Steering',steps:[
+  ['cockpit','Your hands turn the bar; the stem clamps it to the fork\'s steerer tube.'],
+  ['headset','The steerer turns inside two headset bearings. Preload removes any rattle without binding.'],
+  ['fork','The fork turns about the steering axis. The tyre touches the ground behind where that axis meets it (trail), so the wheel self-centres.'],
+  ['thruaxle','The thru-axle holds the front wheel rigidly in the fork, so it steers exactly where the bar points.'],
+  ['tires','The tyre deforms slightly to generate cornering grip.'],
+ ]},
+ comfort:{name:'Your weight & comfort',steps:[
+  ['saddle','Most of your weight sits on the saddle.'],
+  ['seatpost','The seatpost flexes slightly. A longer exposed post flexes more.'],
+  ['frame','The frame carries the load to both axles through its triangles.'],
+  ['cockpit','Some weight is on your hands, through the bar, stem and fork.'],
+  ['tires','The tyres are the real suspension: at gravel pressures, they deflect a few millimetres over every bump.'],
+ ]},
+};
+let trace=null, traceTimer=0, traceHold=false;
+$('#pathChips').innerHTML=Object.entries(PATHS).map(([k,p])=>`<button class="chip" data-path="${k}" aria-pressed="false">▶ ${p.name}</button>`).join('');
+$('#pathChips').addEventListener('click',e=>{const c=e.target.closest('[data-path]'); if(c) startTrace(c.dataset.path);});
+function startTrace(k){
+  stopTrace(); selected=null; renderInspector();
+  trace={k,i:0}; $$('#pathChips .chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.path===k));
+  $('#model').scrollIntoView({behavior:reduceMotion?'auto':'smooth',block:'start'});
+  showStep();
+}
+function showStep(){
+  const p=PATHS[trace.k], st=p.steps[trace.i];
+  highlight([st[0]]); callout(st[0]);
+  if(st[2]) st[2]();
+  $('#capStep').textContent=`${p.name} · ${trace.i+1}/${p.steps.length}`;
+  $('#capText').innerHTML=`${st[1]} <span class="row" style="display:inline-flex;margin-left:6px"><button class="btn" id="trPrev" ${trace.i===0?'disabled':''}>← Back</button><button class="btn" id="trNext">${trace.i===p.steps.length-1?'Finish':'Next →'}</button></span>`;
+  $('#trPrev').onclick=()=>{clearTimeout(traceTimer); trace.i--; showStep();};
+  $('#trNext').onclick=()=>{clearTimeout(traceTimer); advance();};
+  clearTimeout(traceTimer); traceTimer=setTimeout(advance, reduceMotion?60000:4200);
+}
+function advance(){ if(!trace) return; if(trace.i<PATHS[trace.k].steps.length-1){trace.i++; showStep();} else stopTrace(); }
+function stopTrace(){
+  if(!trace) return; clearTimeout(traceTimer);
+  if(traceHold){traceHold=false; setBrake(0);}
+  trace=null; highlight([]); callout(null); $$('#pathChips .chip').forEach(c=>c.setAttribute('aria-pressed','false'));
+  $('#capStep').textContent='Live model'; $('#capText').textContent='Pick another run below, or tap any part.';
+}
+document.addEventListener('keydown',e=>{ if(!trace||/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  if(e.key==='ArrowRight'){e.preventDefault(); clearTimeout(traceTimer); advance();}
+  if(e.key==='ArrowLeft'&&trace.i>0){e.preventDefault(); trace.i--; showStep();}
+  if(e.key==='Escape') stopTrace();
+});
+
+/* ---------- benches ---------- */
+const TABS=[
+ {id:'gearing',name:'Gearing'},
+ {id:'rd',name:'Rear derailleur'},
+ {id:'fd',name:'Front derailleur'},
+ {id:'brakes',name:'Brakes'},
+ {id:'wheels',name:'Wheels & tyres'},
+ {id:'steer',name:'Headset & BB'},
+];
+let tab='gearing';
+const RD={barrel:0,H:0,L:0,hanger:0};
+const FD={tension:0,L:0,H:0,trim:false};
+const BR={mode:'mech',lever:0,pad:3,stretch:0,barrel:0,inner:0,air:0,contam:false,warp:false};
+const WH={psi:40,kg:85,tubeless:false,terrain:1};
+const ST={preload:50};
+$('#tabs').innerHTML=TABS.map(t=>`<button class="tab" role="tab" id="tab-${t.id}" aria-selected="${t.id===tab}" data-t="${t.id}">${t.name}</button>`).join('');
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-t]'); if(b) openTab(b.dataset.t);});
+function openTab(id,scroll){
+  tab=id; $$('#tabs .tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===id)); renderBench();
+  if(scroll) $('#bench').scrollIntoView({behavior:reduceMotion?'auto':'smooth',block:'start'});
+}
+function bench(fig,cap,side){return `<div class="bench" role="tabpanel"><div class="figure">${fig}<div class="status" id="status"></div><div class="figcap">${cap}</div></div><div class="side">${side}</div></div>`;}
+function slider(id,label,min,max,step,val,unit=''){return `<div class="slider-row"><label for="${id}">${label}</label><output id="${id}O">${val}${unit}</output><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`;}
+function msg(kind,text){return `<div class="msg"><span class="pill ${kind}">${{ok:'OK',warn:'Watch',bad:'Fault',info:'Note'}[kind]}</span><span>${text}</span></div>`;}
+function shiftCtl(){return `<div class="row"><span class="eyebrow">Gear</span><div class="seg"><button data-ring="0" aria-pressed="${S.front===0}">${S.rings[0]}T</button><button data-ring="1" aria-pressed="${S.front===1}">${S.rings[1]}T</button></div><button class="btn" data-cog="-1">− Harder</button><span class="mono">${cog()}T</span><button class="btn" data-cog="1">Easier +</button></div>`;}
+document.addEventListener('click',e=>{
+  const r=e.target.closest('[data-ring]'); if(r){setFront(+r.dataset.ring);return;}
+  const c=e.target.closest('[data-cog]'); if(c){setRear(S.rear+ +c.dataset.cog);return;}
+  const g=e.target.closest('[data-gear]'); if(g){const [f,i]=g.dataset.gear.split(',').map(Number); S.front=f; setFront(f); setRear(i);}
+});
+
+function renderBench(){
+  const fn={gearing:benchGearing,rd:benchRD,fd:benchFD,brakes:benchBrakes,wheels:benchWheels,steer:benchSteer}[tab];
+  $('#benchBody').innerHTML=fn(); wireBench(); refreshBench();
+}
+function refreshBench(){ ({gearing:drawGearing,rd:drawRD,fd:drawFD,brakes:drawBrakes,wheels:drawWheels,steer:drawSteer})[tab](); }
+function wireBench(){
+  $$('#benchBody input[type=range]').forEach(inp=>inp.addEventListener('input',()=>{
+    const k=inp.id, v=+inp.value;
+    const map={rdBarrel:[RD,'barrel'],rdH:[RD,'H'],rdL:[RD,'L'],rdHanger:[RD,'hanger'],fdT:[FD,'tension'],fdL:[FD,'L'],fdH:[FD,'H'],
+      brLever:[BR,'lever'],brPad:[BR,'pad'],brStretch:[BR,'stretch'],brBarrel:[BR,'barrel'],brInner:[BR,'inner'],brAir:[BR,'air'],
+      whPsi:[WH,'psi'],whKg:[WH,'kg'],whTer:[WH,'terrain'],stPre:[ST,'preload']}[k];
+    if(map){map[0][map[1]]=v; refreshBench();}
+  }));
+  $$('#benchBody [data-act]').forEach(b=>b.addEventListener('click',()=>{
+    const a=b.dataset.act;
+    if(a==='barrelOut'){RD.barrel=Math.max(-8,RD.barrel-1);} if(a==='barrelIn'){RD.barrel=Math.min(8,RD.barrel+1);}
+    if(a==='rdReset'){Object.assign(RD,{barrel:0,H:0,L:0,hanger:0});}
+    if(a==='fdTrim'){FD.trim=!FD.trim;} if(a==='fdReset'){Object.assign(FD,{tension:0,L:0,H:0,trim:false});}
+    if(a==='brMech'){BR.mode='mech';} if(a==='brHydro'){BR.mode='hydro';}
+    if(a==='brContam'){BR.contam=!BR.contam;} if(a==='brWarp'){BR.warp=!BR.warp; kick();}
+    if(a==='brReset'){Object.assign(BR,{lever:0,pad:3,stretch:0,barrel:0,inner:0,air:0,contam:false,warp:false});}
+    if(a==='whTube'){WH.tubeless=false;} if(a==='whTL'){WH.tubeless=true;}
+    if(a==='pedal'){setPedal(!S.pedaling);}
+    renderBench();
+  }));
+  const pull=$('#brPull');
+  if(pull){ let raf=0;
+    const go=dir=>{cancelAnimationFrame(raf); const step=()=>{BR.lever=Math.max(0,Math.min(1,BR.lever+dir*0.035)); $('#brLever').value=BR.lever; refreshBench(); if((dir>0&&BR.lever<1)||(dir<0&&BR.lever>0)) raf=requestAnimationFrame(step);}; step();};
+    pull.addEventListener('pointerdown',e=>{e.preventDefault();go(1);});
+    ['pointerup','pointerleave','pointercancel'].forEach(t=>pull.addEventListener(t,()=>go(-1)));
+    pull.addEventListener('keydown',e=>{if(e.key===' '||e.key==='Enter'){e.preventDefault();go(1);}});
+    pull.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter')go(-1);});
+  }
+}
+function setOut(id,txt){const o=$('#'+id+'O'); if(o) o.textContent=txt;}
+
+/* --- Gearing --- */
+function benchGearing(){
+  return bench(`<div class="svgbox"><svg id="gSvg" viewBox="0 0 640 250" aria-label="Top view of chainline"></svg></div>`,
+  'Top view, looking down on the drive side. The chain runs from the selected chainring (right) to the selected cog (left). The steeper that line, the more friction, noise and wear: that is cross-chaining.',
+  `<div class="card"><h3>What a gear is</h3><p>A gear is just a ratio: chainring teeth ÷ cog teeth. One crank turn rotates the rear wheel that many times. Multiply by the wheel's circumference (about ${CIRC} m) and you get the distance per pedal stroke.</p>${shiftCtl()}</div>
+   <div class="card"><h3>Every gear on your bike</h3><p class="note">Metres travelled per crank turn. Click a cell to select that gear. Hatched cells are cross-chained.</p><div class="tablewrap" id="gTable"></div></div>
+   <div class="card"><h3>Why two rings</h3><p>The two rings each cover an overlapping range. Most of the time stay in the big ring on flats and descents and the small ring for climbs, and use the cassette for small steps. Shift the front <em>before</em> you need it: front shifts under heavy load are what drop chains.</p></div>`);
+}
+function crossChained(f,i){const n=S.cass.cogs.length; return (f===1&&i>=n-2)||(f===0&&i<=1);}
+function drawGearing(){
+  const n=S.cass.cogs.length, sp=S.cass.pitch, c0=44.5;
+  const cogPos=i=>c0+((n-1)/2-i)*sp, ringPos=f=>f?47.5:40.5;
+  const Y=mm=>20+(mm-24)*5.2, xR=560, xC=90;
+  const rcY=Y(ringPos(S.front)), ccY=Y(cogPos(S.rear));
+  const ang=Math.atan((cogPos(S.rear)-ringPos(S.front))/425)*180/Math.PI;
+  const cross=crossChained(S.front,S.rear);
+  let s='';
+  s+=`<text x="${xC-60}" y="14" class="t-small">REAR HUB (cassette)</text><text x="${xR-45}" y="14" class="t-small">CRANKSET</text>`;
+  s+=`<line x1="${xC}" y1="22" x2="${xC}" y2="238" stroke="var(--line)" stroke-dasharray="3 3"/><line x1="${xR}" y1="22" x2="${xR}" y2="238" stroke="var(--line)" stroke-dasharray="3 3"/>`;
+  S.cass.cogs.forEach((t,i)=>{const w=pr(t)*0.9, y=Y(cogPos(i)); s+=`<rect x="${xC-w/2}" y="${y-1.6}" width="${w}" height="3.2" rx="1" fill="${i===S.rear?'var(--ink)':'var(--metal)'}"/>`;});
+  S.rings.forEach((t,f)=>{const w=pr(t)*0.9, y=Y(ringPos(f)); s+=`<rect x="${xR-w/2}" y="${y-2}" width="${w}" height="4" rx="1" fill="${f===S.front?'var(--ink)':'var(--metal)'}"/>`;});
+  s+=`<line x1="${xC}" y1="${ccY}" x2="${xR}" y2="${rcY}" stroke="${cross?'var(--bad)':'var(--accent)'}" stroke-width="4" stroke-linecap="round"/>`;
+  s+=`<line x1="${xC}" y1="${Y(c0)}" x2="${xR}" y2="${Y(c0)}" stroke="var(--motion)" stroke-dasharray="6 5" stroke-width="1.2"/>`;
+  s+=`<text x="300" y="${Y(c0)-8}" class="t-small" fill="var(--motion)">ideal straight chainline</text>`;
+  s+=`<text x="300" y="236" class="t-label" text-anchor="middle">Chain angle ${fmt(Math.abs(ang),1)}° · ${ring()}×${cog()}</text>`;
+  s+=`<text x="${xC+4}" y="${Y(cogPos(n-1))-8}" class="t-small">big cogs (easy)</text><text x="${xC+4}" y="${Y(cogPos(0))+16}" class="t-small">small cogs (hard)</text>`;
+  $('#gSvg').innerHTML=s;
+  // table
+  let h=`<table class="gtable"><thead><tr><th>Ring \\ cog</th>${S.cass.cogs.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>`;
+  [1,0].forEach(f=>{h+=`<tr><th>${S.rings[f]}T</th>`+S.cass.cogs.map((c,i)=>`<td data-gear="${f},${i}" class="${crossChained(f,i)?'cross':''} ${f===S.front&&i===S.rear?'cur':''}" title="${fmt(S.rings[f]/c,2)} ratio">${fmt(S.rings[f]/c*CIRC,1)}</td>`).join('')+'</tr>';});
+  h+='</tbody></table>'; $('#gTable').innerHTML=h;
+  const st=[];
+  st.push(msg(cross?'warn':'ok', cross?`Cross-chained: the chain runs ${fmt(Math.abs(ang),1)}° off straight. Expect FD rub and faster wear. The ${S.front?'small':'big'} ring has a similar gear with a straighter line.`:`Chain line ${fmt(Math.abs(ang),1)}° off straight. Fine.`));
+  st.push(msg('info',`At ${S.cadence} rpm this gear does ${fmt(vDrive()*3.6,1)} km/h. Easiest gear: ${fmt(S.rings[0]/S.cass.cogs.at(-1)*CIRC,1)} m per turn; hardest: ${fmt(S.rings[1]/S.cass.cogs[0]*CIRC,1)} m.`));
+  $('#status').innerHTML=st.join('');
+  $$('#benchBody [data-ring]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.ring===S.front));
+  const m=$('#benchBody .card .mono'); if(m) m.textContent=cog()+'T';
+}
+
+/* --- Rear derailleur --- */
+function benchRD(){
+  return bench(`<div class="svgbox"><svg id="rdSvg" viewBox="0 0 640 380" aria-label="Rear view of derailleur and cassette"></svg></div>`,
+  'Seen from behind the bike. Wheel spokes to the left, frame dropout to the right. The cable pulls the parallelogram inward (left) toward bigger cogs; the spring pulls it back out. The limit screws are hard stops at each end.',
+  `<div class="card"><h3>Shift it</h3>${shiftCtl()}<p class="note">Each click of the lever pulls a fixed amount of cable, which should move the pulley exactly one cog spacing (${S.cass.pitch} mm on ${S.cass.cogs.length}-speed).</p></div>
+   <div class="card"><h3>Adjust it</h3>
+     <div><div class="row" style="justify-content:space-between"><span>Barrel adjuster</span><output class="mono" id="rdBarrelO"></output></div>
+     <div class="row" style="margin-top:6px"><button class="btn" data-act="barrelOut">↺ ¼ turn out (+ tension)</button><button class="btn" data-act="barrelIn">↻ ¼ turn in (− tension)</button></div>
+     <p class="note" style="margin-top:4px">Out = anticlockwise as seen from where the cable enters. It lengthens the housing, which pulls the cable tighter.</p></div>
+     ${slider('rdH','H limit screw (smallest-cog stop)',-3,3,0.25,RD.H,' mm')}
+     ${slider('rdL','L limit screw (biggest-cog stop)',-3,3,0.25,RD.L,' mm')}
+     <p class="note">0 = set correctly. Negative H / positive L = too loose (can overshoot). The other way = too tight (can't reach).</p>
+     ${slider('rdHanger','Hanger bent inward',0,6,0.5,RD.hanger,'°')}
+     <button class="btn" data-act="rdReset">Reset to correct setup</button></div>
+   <div class="card"><h3>Indexing in four steps</h3><ol><li>Smallest cog: set H so the pulley sits under the cog.</li><li>Largest cog: set L the same way, pushing the derailleur inward to test.</li><li>Second cog: tune the barrel until it runs silently and shifts both ways crisply.</li><li>Check every cog. Errors growing toward the big cogs point to the hanger.</li></ol></div>`);
+}
+function rdCalc(){
+  const n=S.cass.cogs.length, sp=S.cass.pitch;
+  const x=i=>i*sp;                         // lateral position, mm inboard from smallest cog
+  const Hstop=RD.H;                       // positive = tighter = stop further inboard
+  const Lstop=x(n-1)+RD.L;
+  const bendOff=i=>RD.hanger*0.28*(1+0.16*i);
+  const desired=x(S.rear)+RD.barrel*0.35;
+  const pos=Math.max(Hstop,Math.min(Lstop,desired))+bendOff(S.rear);
+  const err=pos-x(S.rear);
+  return {n,sp,x,Hstop,Lstop,pos,err,desired};
+}
+function drawRD(){
+  const c=rdCalc(), {n,sp,x}=c;
+  const base=520, k=9;                     // px per mm
+  const X=mm=>base-mm*k;
+  let s='';
+  // wheel / spokes plane & frame
+  const spokeX=X(x(n-1)+9);
+  s+=`<rect x="${spokeX-30}" y="20" width="10" height="330" fill="var(--soft)"/><text x="${spokeX-40}" y="372" class="t-small">spokes</text>`;
+  s+=`<rect x="${X(-6)}" y="40" width="22" height="80" rx="3" fill="var(--frame)"/><text x="${X(-6)-4}" y="36" class="t-small">dropout</text>`;
+  s+=`<line x1="${spokeX-20}" y1="80" x2="${X(-6)}" y2="80" stroke="var(--metal-d)" stroke-width="5"/><text x="${X(x(n-1))-6}" y="72" class="t-small">axle</text>`;
+  // cogs
+  S.cass.cogs.forEach((t,i)=>{const h=pr(t)*1.4; s+=`<rect x="${X(x(i))-2.2}" y="${80-h/2}" width="4.4" height="${h}" rx="1.5" fill="${i===S.rear?'var(--ink)':'var(--metal)'}"/>`;
+    s+=`<text x="${X(x(i))}" y="${80+h/2+12}" class="t-small" text-anchor="middle">${t}</text>`;});
+  // hanger and RD body
+  const bend=deg(RD.hanger);
+  const hTop=[X(-6)+6,118], hBot=[hTop[0]-Math.sin(bend)*30, hTop[1]+Math.cos(bend)*30];
+  s+=`<path d="M${P(hTop)} L${P(hBot)}" stroke="var(--metal)" stroke-width="10" stroke-linecap="round"/><text x="${hTop[0]-10}" y="${hTop[1]+30}" class="t-small" text-anchor="end">hanger${RD.hanger?` (bent ${RD.hanger}°)`:''}</text>`;
+  const gpX=X(c.pos), gpY=230, tpY=300;
+  // parallelogram
+  const k1=[hBot[0],hBot[1]+4], k2=[hBot[0],hBot[1]+26];
+  const m1=[gpX+18,gpY-46], m2=[gpX+18,gpY-24];
+  s+=`<path d="M${P(k1)} L${P(m1)} M${P(k2)} L${P(m2)}" stroke="var(--metal-d)" stroke-width="6" stroke-linecap="round"/>`;
+  s+=`<path d="M${P(k1)} L${P(k2)} M${P(m1)} L${P(m2)}" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/>`;
+  // spring
+  let sp2=`M${k1[0]-4},${k1[1]+10}`; const segs=9; for(let i=1;i<=segs;i++){const t=i/segs; const px=k1[0]-4+(m2[0]-k1[0]+4)*t, py=k1[1]+10+(m2[1]-k1[1]-10)*t+(i%2?5:-5); sp2+=` L${px.toFixed(1)},${py.toFixed(1)}`;}
+  s+=`<path d="${sp2}" stroke="var(--motion)" stroke-width="1.5" fill="none"/><text x="${(k1[0]+m2[0])/2-10}" y="${(k1[1]+m2[1])/2+28}" class="t-small" fill="var(--motion)">spring → out</text>`;
+  // cable
+  s+=`<path d="M630,140 C600,150 ${k2[0]+40},${k2[1]} ${m1[0]+8},${m1[1]+10}" stroke="var(--accent)" stroke-width="2.5" fill="none"/><text x="634" y="128" class="t-acc" text-anchor="end">cable pulls ←</text>`;
+  // barrel adjuster
+  s+=`<rect x="600" y="138" width="24" height="12" rx="3" fill="var(--metal-d)"/><text x="612" y="166" class="t-small" text-anchor="middle">barrel</text>`;
+  // cage & pulleys
+  s+=`<line x1="${gpX}" y1="${gpY-22}" x2="${gpX}" y2="${tpY+22}" stroke="var(--metal-d)" stroke-width="3"/>`;
+  s+=`<rect x="${gpX-4}" y="${gpY-14}" width="8" height="28" rx="3" fill="var(--panel)" stroke="var(--ink)" stroke-width="1.5"/><rect x="${gpX-4}" y="${tpY-14}" width="8" height="28" rx="3" fill="var(--panel)" stroke="var(--ink)" stroke-width="1.5"/>`;
+  s+=`<text x="${gpX+10}" y="${gpY+4}" class="t-small">guide pulley</text><text x="${gpX+10}" y="${tpY+4}" class="t-small">tension pulley</text>`;
+  // chain from cog bottom to guide pulley
+  const cogBot=80+pr(cog())*0.7;
+  const bad=Math.abs(c.err)>sp*0.5, warn=Math.abs(c.err)>0.35;
+  s+=`<line x1="${X(x(S.rear))}" y1="${cogBot}" x2="${gpX}" y2="${gpY-14}" stroke="${bad?'var(--bad)':warn?'var(--warn)':'var(--accent)'}" stroke-width="5" stroke-linecap="round"/>`;
+  s+=`<line x1="${gpX}" y1="${gpY+14}" x2="${gpX}" y2="${tpY-14}" stroke="var(--accent)" stroke-width="5" stroke-linecap="round" opacity=".8"/>`;
+  // scale with limit stops
+  const sy=350;
+  s+=`<line x1="${X(-4)}" y1="${sy}" x2="${X(x(n-1)+4)}" y2="${sy}" stroke="var(--line)" stroke-width="2"/>`;
+  for(let i=0;i<n;i++) s+=`<line x1="${X(x(i))}" y1="${sy-4}" x2="${X(x(i))}" y2="${sy+4}" stroke="var(--muted)"/>`;
+  s+=`<rect x="${X(c.Hstop)-2}" y="${sy-14}" width="4" height="22" fill="var(--bad)"/><text x="${X(c.Hstop)+4}" y="${sy-6}" class="t-small" style="fill:var(--bad)">H</text>`;
+  s+=`<rect x="${X(c.Lstop)-2}" y="${sy-14}" width="4" height="22" fill="var(--bad)"/><text x="${X(c.Lstop)-14}" y="${sy-6}" class="t-small" style="fill:var(--bad)">L</text>`;
+  s+=`<path d="M${gpX},${sy-18} l-5,-8 h10z" fill="var(--accent)"/>`;
+  $('#rdSvg').innerHTML=s;
+  // outputs
+  const o=$('#rdBarrelO'); if(o) o.textContent=`${RD.barrel>0?'+':''}${RD.barrel/4} turns`;
+  setOut('rdH',`${RD.H>0?'+':''}${RD.H} mm`); setOut('rdL',`${RD.L>0?'+':''}${RD.L} mm`); setOut('rdHanger',`${RD.hanger}°`);
+  // status
+  const st=[]; const e=c.err;
+  if(Math.abs(e)<=0.35) st.push(msg('ok',`Guide pulley within ${fmt(Math.abs(e),2)} mm of the ${cog()}T cog. Quiet, crisp shifts.`));
+  else if(Math.abs(e)<=sp*0.5) st.push(msg('warn', e<0?`Pulley ${fmt(-e,1)} mm outboard of the cog (cable slack). Chain rattles toward the smaller cog and hesitates going to bigger cogs. Fix: barrel adjuster out.`:`Pulley ${fmt(e,1)} mm inboard of the cog (cable tight). Chain rattles toward the bigger cog and drops to smaller cogs late. Fix: barrel adjuster in.`));
+  else st.push(msg('bad',`Pulley ${fmt(Math.abs(e),1)} mm off. The chain wants to sit on the neighbouring cog: it skips or ghost-shifts under load.`));
+  if(c.Hstop<-1.2) st.push(msg('bad','H limit too loose: on the smallest cog the chain can be thrown off into the gap by the frame.'));
+  if(c.Hstop>0.4) st.push(msg('warn','H limit too tight: the pulley can\'t reach the smallest cog. The chain rattles there or won\'t drop.'));
+  if(c.Lstop>x(n-1)+1.2) st.push(msg('bad','L limit too loose: the chain can overshoot the biggest cog into the spokes.'));
+  if(c.Lstop<x(n-1)-0.4) st.push(msg('warn','L limit too tight: the derailleur can\'t reach the biggest cog.'));
+  if(RD.hanger>0) st.push(msg('warn',`Bent hanger adds ${fmt(RD.hanger*0.28*(1+0.16*S.rear),1)} mm of error on this cog, and more on bigger cogs. Barrel tweaks can't fix all cogs at once.`));
+  $('#status').innerHTML=st.join('');
+  $$('#benchBody [data-ring]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.ring===S.front));
+  const m=$('#benchBody .card .mono'); if(m) m.textContent=cog()+'T';
+}
+
+/* --- Front derailleur --- */
+function fdCalc(){
+  const n=S.cass.cogs.length, sp=S.cass.pitch, c0=44.5;
+  const cogPos=c0+((n-1)/2-S.rear)*sp, ringPos=S.front?47.5:40.5;
+  const chainAt=ringPos+(cogPos-ringPos)*0.15;
+  const Lstop=40.6+FD.L, Hstop=51.0+FD.H, bigIdeal=47.9;
+  let cage = S.front===0 ? Lstop : Math.min(Hstop, bigIdeal+FD.tension - (FD.trim?1.2:0));
+  cage=Math.max(cage,Lstop);
+  const clear=2.25, d=chainAt-cage;
+  return {chainAt,cage,d,clear,Lstop,Hstop,ringPos,cogPos};
+}
+function benchFD(){
+  return bench(`<div class="svgbox"><svg id="fdSvg" viewBox="0 0 640 330" aria-label="Rear view of front derailleur cage and chainrings"></svg></div>`,
+  'Looking forward from behind the chainrings. The cage is two plates either side of the chain. The outer plate pushes the chain up onto the big ring; the inner plate pushes it down to the small ring. Which rear cog you\'re in changes the chain\'s angle through the cage.',
+  `<div class="card"><h3>Shift it</h3>${shiftCtl()}<div class="row"><button class="btn ${FD.trim?'on':''}" data-act="fdTrim" aria-pressed="${FD.trim}">Trim click ${FD.trim?'on':'off'}</button><span class="note">Big ring only. Nudges the cage inward a little.</span></div></div>
+   <div class="card"><h3>Adjust it</h3>
+     ${slider('fdT','Cable tension (inline adjuster)',-2,2,0.25,FD.tension,' mm')}
+     ${slider('fdL','L limit (inner stop)',-3,2,0.25,FD.L,' mm')}
+     ${slider('fdH','H limit (outer stop)',-2,3,0.25,FD.H,' mm')}
+     <button class="btn" data-act="fdReset">Reset to correct setup</button></div>
+   <div class="card"><h3>Good to know</h3><ul><li>On the small ring the cable is slack; the spring holds the cage against the L screw. So the L screw alone sets the small-ring position.</li><li>On the big ring, cable tension sets the position and the H screw stops overshoot.</li><li>Cage height: outer plate 1–3 mm above the big ring's teeth, parallel to it.</li></ul></div>`);
+}
+function drawFD(){
+  const c=fdCalc(), k=18, X=mm=>80+(mm-34)*k;
+  let s='';
+  s+=`<line x1="${X(34)}" y1="302" x2="${X(56)}" y2="302" stroke="var(--line)"/>`;
+  for(let mm=36;mm<=54;mm+=2) s+=`<text x="${X(mm)}" y="318" class="t-small" text-anchor="middle">${mm}</text>`;
+  s+=`<text x="${X(34)}" y="22" class="t-small">Rear view · scale in mm from the frame centreline</text>`;
+  // rings
+  [[40.5,S.rings[0],0],[47.5,S.rings[1],1]].forEach(([mm,t,f])=>{const h=pr(t)*1.3; s+=`<rect x="${X(mm)-k}" y="${270-h}" width="${2*k}" height="${h}" rx="2" fill="${f===S.front?'var(--ink)':'var(--metal)'}"/><text x="${X(mm)-k-6}" y="${266}" class="t-small" text-anchor="end">${t}T</text>`;});
+  // chain from ring top heading back to cassette (drawn as segment through cage)
+  const topY=270-pr(ring())*1.3;
+  const bad=Math.abs(c.d)>c.clear;
+  const cw=3.5*k, col=bad?'var(--bad)':'var(--accent)';
+  s+=`<path d="M${X(c.ringPos)-cw},${topY} L${X(c.chainAt)-cw},${topY-70} L${X(c.chainAt)+cw},${topY-70} L${X(c.ringPos)+cw},${topY} Z" fill="${col}" opacity=".85"/>`;
+  s+=`<text x="${X(34)}" y="40" class="t-small">Chain (7 mm wide) runs up from the ${ring()}T ring and back to the ${cog()}T cog.</text>`;
+  // cage
+  const half=c.clear+3.5;
+  const cy=topY-40;
+  [-1,1].forEach(sg=>{const xx=X(c.cage+sg*half); s+=`<rect x="${xx-3}" y="${cy-34}" width="6" height="58" rx="2" fill="var(--metal-d)"/>`;});
+  s+=`<rect x="${X(c.cage-half)-3}" y="${cy-34}" width="${(2*half)*k+6}" height="8" rx="2" fill="var(--metal-d)"/>`;
+  s+=`<text x="${X(c.cage-half)-6}" y="${cy-40}" class="t-small" text-anchor="end">inner plate</text><text x="${X(c.cage+half)+6}" y="${cy-40}" class="t-small">outer plate</text>`;
+  // stops
+  [['L',c.Lstop],['H',c.Hstop]].forEach(([n,mm])=>{s+=`<rect x="${X(mm)-2}" y="280" width="4" height="18" fill="var(--bad)"/><text x="${X(mm)+5}" y="294" class="t-small" style="fill:var(--bad)">${n}</text>`;});
+  s+=`<path d="M${X(c.cage)},298 l-5,-8 h10z" fill="var(--accent)"/>`;
+  // cable
+  s+=`<path d="M${X(c.cage+half)+3},${cy} C ${X(c.cage+half)+60},${cy+10} 600,120 630,${cy+70}" stroke="var(--accent)" stroke-width="2" fill="none"/><text x="634" y="${cy+96}" class="t-acc" text-anchor="end">cable pulls →</text>`;
+  $('#fdSvg').innerHTML=s;
+  setOut('fdT',`${FD.tension>0?'+':''}${FD.tension} mm`); setOut('fdL',`${FD.L>0?'+':''}${FD.L} mm`); setOut('fdH',`${FD.H>0?'+':''}${FD.H} mm`);
+  const st=[];
+  if(!bad) st.push(msg('ok',`Chain clears both plates (${fmt(c.clear-Math.abs(c.d),1)} mm to spare).`));
+  else st.push(msg('warn',`Chain rubs the ${c.d<0?'inner':'outer'} plate. ${crossChained(S.front,S.rear)?'You are cross-chained: try the other ring.':(S.front===1&&c.d<0&&!FD.trim?'Try the trim click.':'Adjust cable tension or the limit screw.')}`));
+  if(S.front===0&&c.Lstop<39) st.push(msg('bad','L limit too loose: the cage swings past the small ring and can drop the chain onto the frame.'));
+  if(S.front===1&&c.Hstop>52) st.push(msg('bad','H limit too loose: the cage can throw the chain off the outside of the big ring.'));
+  if(S.front===1&&c.cage<47.2&&!FD.trim) st.push(msg('warn','Cable too slack or H too tight: the cage can\'t fully lift the chain to the big ring. Sluggish front upshifts.'));
+  $('#status').innerHTML=st.join('');
+  $$('#benchBody [data-ring]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.ring===S.front));
+  const m=$('#benchBody .card .mono'); if(m) m.textContent=cog()+'T';
+}
+
+/* --- Brakes --- */
+function brakeEffect(){const c=brCalc(1); return Math.max(0.1,c.force)*(BR.contam?0.35:1);}
+function brCalc(lever=BR.lever){
+  const wear=(3-BR.pad);                // mm lost per pad (new = 3 mm material)
+  if(BR.mode==='mech'){
+    const slack=0.4+BR.stretch-BR.barrel*0.25;   // cable slack, mm
+    const go=0.35+wear, gi=Math.max(0.05,0.3+wear-BR.inner*0.25);
+    const pull=lever*6;                  // mm of cable at full lever
+    const padMove=Math.max(0,(pull-slack))*0.35;
+    const need=go+gi;
+    const bite=(need/0.35+slack)/6;
+    const force=Math.max(0,Math.min(1,(padMove-need)/0.5));
+    return {go,gi,need,padMove,bite,force,slack,wear};
+  } else {
+    const gi=0.25, go=0.25, need=0.5;
+    const bite=0.22+BR.air*0.5;
+    const spongeSlope=1/(0.18+BR.air*0.9);
+    const force=Math.max(0,Math.min(1,(lever-bite)*spongeSlope));
+    const padMove=lever<bite?need*lever/bite:need;
+    return {go,gi,need,padMove,bite,force,wear};
+  }
+}
+function benchBrakes(){
+  const mech=BR.mode==='mech';
+  return bench(`<div class="svgbox"><svg id="brSvg" viewBox="0 0 640 340" aria-label="Brake caliper seen from above"></svg></div>`,
+  mech?'Looking down on the caliper. The rotor runs vertically through the middle. In a mechanical caliper only the outer pad moves: the cable rotates an arm, a cam (or ball ramp) pushes the pad, and the rotor flexes slightly onto the fixed inner pad.':'Looking down on the caliper. Squeezing the lever pushes a piston in the lever, which pushes oil to both caliper pistons at once. As pads wear, the pistons sit further out by themselves, so the bite point stays put.',
+  `<div class="card"><h3>Type</h3><div class="seg" role="group"><button data-act="brMech" aria-pressed="${mech}">Mechanical (cable)</button><button data-act="brHydro" aria-pressed="${!mech}">Hydraulic</button></div>
+     ${slider('brLever','Lever pull',0,1,0.01,BR.lever)}
+     <div class="row"><button class="btn primary" id="brPull">Hold to squeeze</button></div></div>
+   <div class="card"><h3>Wear & faults</h3>
+     ${slider('brPad','Pad material left (each pad)',0,3,0.1,BR.pad,' mm')}
+     ${mech?slider('brStretch','Cable stretch',0,3,0.1,BR.stretch,' mm')+slider('brBarrel','Barrel adjuster (turns out)',0,8,1,BR.barrel,'')+slider('brInner','Inner pad dial (clicks in)',0,8,1,BR.inner,''):slider('brAir','Air in the system',0,1,0.05,BR.air,'')}
+     <div class="row"><button class="btn ${BR.contam?'on':''}" data-act="brContam" aria-pressed="${BR.contam}">Oil on pads</button><button class="btn ${BR.warp?'on':''}" data-act="brWarp" aria-pressed="${BR.warp}">Bent rotor</button><button class="btn" data-act="brReset">Reset</button></div></div>
+   <div class="card"><h3>Pad replacement</h3><ol><li>Remove the wheel.</li><li>Remove the pad retaining pin or bolt; pull the pads out (on some calipers, from above).</li><li>${mech?'Back the inner pad dial fully out.':'Push the pistons back with a plastic tyre lever.'}</li><li>Fit new pads and spring, refit the pin.</li><li>${mech?'Adjust the inner pad dial and cable tension as on this bench.':'Pump the lever until it firms up.'}</li><li>Bed in: 10–20 firm stops from 20 km/h.</li></ol></div>`);
+}
+let rotorPhase=0;
+function drawBrakes(){
+  const c=brCalc(), mech=BR.mode==='mech';
+  const k=40, RX=330;                       // px per mm around rotor
+  const wob = BR.warp ? Math.sin(rotorPhase)*0.55 : 0;
+  const flex = mech ? Math.min(c.gi, Math.max(0, c.padMove - c.go)) : 0;
+  const rotorX = RX + (wob + (mech? -flex:0))*k;  // rotor moves toward inner (left)
+  let s='';
+  // hub axis label
+  s+=`<text x="20" y="22" class="t-small">← hub / wheel side (inner)</text><text x="620" y="22" class="t-small" text-anchor="end">outside →</text>`;
+  // caliper body
+  s+=`<rect x="${RX-170}" y="70" width="340" height="200" rx="18" fill="none" stroke="var(--metal-d)" stroke-width="3" stroke-dasharray="6 4"/><text x="${RX-160}" y="62" class="t-small">caliper body</text>`;
+  // rotor
+  s+=`<rect x="${rotorX-4}" y="40" width="8" height="260" rx="2" fill="var(--rotor)"/><text x="${rotorX+8}" y="50" class="t-small">rotor</text>`;
+  // pads
+  const mat=Math.max(0.15,BR.pad)*k*0.6, back=12;
+  const innerFace = RX - 4 - c.gi*k + (mech?0: (c.padMove/2)*k ) ;
+  const outerFace = RX + 4 + c.go*k - (mech? c.padMove*k : (c.padMove/2)*k);
+  const contact = c.force>0;
+  // inner pad (left)
+  const iF = mech ? innerFace : Math.min(innerFace, rotorX-4);
+  const oF = mech ? Math.max(outerFace, rotorX+4) : Math.max(outerFace, rotorX+4);
+  const padCol=BR.contam?'var(--warn)':(contact?'var(--bad)':'var(--rubber)');
+  s+=`<rect x="${iF-mat}" y="110" width="${mat}" height="120" fill="${padCol}"/><rect x="${iF-mat-back}" y="104" width="${back}" height="132" fill="var(--metal-d)"/>`;
+  s+=`<rect x="${oF}" y="110" width="${mat}" height="120" fill="${padCol}"/><rect x="${oF+mat}" y="104" width="${back}" height="132" fill="var(--metal-d)"/>`;
+  s+=`<text x="${iF-mat-back}" y="98" class="t-small">inner pad</text><text x="${oF}" y="98" class="t-small">outer pad</text>`;
+  if(mech){
+    // inner adjuster
+    s+=`<rect x="${iF-mat-back-40}" y="160" width="${40}" height="20" fill="var(--metal)"/><circle cx="${iF-mat-back-50}" cy="170" r="16" fill="var(--metal-d)"/><text x="${iF-mat-back-80}" y="205" class="t-small">pad dial</text>`;
+    // cam + arm
+    const ax=oF+mat+back+30, ang=-30+BR.lever*55;
+    s+=`<rect x="${oF+mat+back}" y="162" width="30" height="16" fill="var(--metal)"/>`;
+    const armEnd=polar([ax,170],70,deg(ang-90));
+    s+=`<circle cx="${ax}" cy="170" r="14" fill="var(--metal-d)"/><line x1="${ax}" y1="170" x2="${armEnd[0].toFixed(1)}" y2="${armEnd[1].toFixed(1)}" stroke="var(--ink)" stroke-width="8" stroke-linecap="round"/>`;
+    s+=`<path d="M${armEnd[0].toFixed(1)},${armEnd[1].toFixed(1)} C ${armEnd[0]+40},${armEnd[1]-10} 600,60 630,40" stroke="var(--accent)" stroke-width="2.5" fill="none"/><text x="${ax+22}" y="${200}" class="t-small">actuating arm + cam</text><text x="540" y="70" class="t-acc">cable</text>`;
+  } else {
+    // pistons & oil
+    s+=`<rect x="${iF-mat-back-36}" y="140" width="36" height="60" fill="var(--motion)" opacity=".55"/><rect x="${oF+mat+back}" y="140" width="36" height="60" fill="var(--motion)" opacity=".55"/>`;
+    s+=`<text x="${iF-mat-back-36}" y="218" class="t-small">piston</text><text x="${oF+mat+back}" y="218" class="t-small">piston</text>`;
+    s+=`<path d="M${oF+mat+back+36},170 C 590,170 590,60 630,40" stroke="var(--motion)" stroke-width="6" fill="none" opacity=".7"/><text x="520" y="70" class="t-small" fill="var(--motion)">mineral oil from lever</text>`;
+    for(let i=0;i<Math.round(BR.air*6);i++){const t=0.2+i*0.12; const bx=oF+mat+back+36+(630-oF-mat-back-36)*t, by=170-(130*t*t); s+=`<circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="4" fill="var(--panel)" stroke="var(--motion)"/>`;}
+  }
+  // lever travel gauge
+  const gx=40, gw=560, gy=300+0;
+  s+=`<g transform="translate(0,6)"><rect x="${gx}" y="${gy+20}" width="${gw}" height="8" rx="4" fill="var(--soft)"/>`;
+  const biteX=gx+Math.min(1,c.bite)*gw, barX=gx+0.9*gw;
+  s+=`<rect x="${gx}" y="${gy+20}" width="${(BR.lever*gw).toFixed(1)}" height="8" rx="4" fill="var(--accent)"/>`;
+  s+=`<line x1="${biteX}" y1="${gy+14}" x2="${biteX}" y2="${gy+34}" stroke="var(--ok)" stroke-width="3"/><line x1="${barX}" y1="${gy+14}" x2="${barX}" y2="${gy+34}" stroke="var(--bad)" stroke-width="3"/>`;
+  s+=`<text x="${gx}" y="${gy+12}" class="t-small">lever travel</text><text x="${biteX}" y="${gy+46}" class="t-small" text-anchor="middle" style="fill:var(--ok)">bite</text><text x="${barX}" y="${gy+46}" class="t-small" text-anchor="middle" style="fill:var(--bad)">bar</text>`;
+  s+=`</g>`;
+  $('#brSvg').setAttribute('viewBox','0 0 640 360');
+  $('#brSvg').innerHTML=s;
+  setOut('brLever',`${Math.round(BR.lever*100)} %`); setOut('brPad',`${fmt(BR.pad,1)} mm`); setOut('brStretch',`${fmt(BR.stretch,1)} mm`); setOut('brBarrel',`${BR.barrel}`); setOut('brInner',`${BR.inner}`); setOut('brAir',`${Math.round(BR.air*100)} %`);
+  const st=[];
+  const bitePct=Math.round(c.bite*100);
+  st.push(msg(c.bite<0.5?'ok':c.bite+0.15<0.9?'warn':'bad',`Bite point at ${bitePct}% of lever travel${c.bite+0.15>=0.9?': the lever will reach the bar before full power. Unsafe.':c.bite<0.5?'.':'. Getting long; adjust soon.'} (green mark; red = bar)`));
+  if(BR.lever>0) st.push(msg(c.force>0.6?'ok':'info',`Clamping force ${Math.round(c.force*100)}% · stopping power ${Math.round(c.force*(BR.contam?35:100))}%.`));
+  if(BR.pad<0.5) st.push(msg('bad','Pads below 0.5 mm: replace now. Metal backing plates will score the rotor.'));
+  if(mech&&c.gi<=0.06) st.push(msg('warn','Inner pad is touching the rotor: it will drag. Back the dial off one click.'));
+  if(!mech&&BR.air>0.2) st.push(msg('warn','Air compresses, so the lever feels spongy and the bite point drifts. Bleed the brake.'));
+  if(BR.contam) st.push(msg('bad','Contaminated pads: loud, weak braking. Replace pads, clean rotor with isopropyl alcohol.'));
+  if(BR.warp) st.push(msg('warn','Bent rotor: it touches the pads once per turn (tick-tick) and pulses under braking. Watch the rotor wobble while the wheel spins.'));
+  $('#status').innerHTML=st.join('');
+}
+
+/* --- Wheels & tyres --- */
+function whCalc(){
+  const rearKg=WH.kg*0.6, frontKg=WH.kg*0.4;
+  let guide=0.47*WH.kg - [0,3,6][WH.terrain] - (WH.tubeless?3:0);
+  const guideF=guide-3;
+  const area=(rearKg*2.2046)/WH.psi*645.16;     // mm²
+  const width=38, len=area/(0.8*width);
+  const sag=15*guide/WH.psi;
+  return {rearKg,frontKg,guide,guideF,area,len,sag};
+}
+function benchWheels(){
+  return bench(`<div class="svgbox"><svg id="whSvg" viewBox="0 0 640 330" aria-label="Tyre cross-section, contact patch and freehub"></svg></div>`,
+  'Left: tyre cross-section on the rim and its footprint on the ground (rear wheel). Right: the freehub inside the rear hub. Pawls on the cassette body catch teeth inside the hub shell when you pedal and click over them when you coast.',
+  `<div class="card"><h3>Tyre pressure</h3>
+     ${slider('whPsi','Rear pressure',18,70,1,WH.psi,' psi')}
+     ${slider('whKg','You + bike + kit',50,130,1,WH.kg,' kg')}
+     ${slider('whTer','Surface (0 smooth road · 1 gravel · 2 rough)',0,2,1,WH.terrain,'')}
+     <div class="seg" role="group"><button data-act="whTube" aria-pressed="${!WH.tubeless}">Inner tubes</button><button data-act="whTL" aria-pressed="${WH.tubeless}">Tubeless</button></div>
+     <div class="kv" id="whKv"></div></div>
+   <div class="card"><h3>Freehub</h3><p>Pedalling or not is taken from the model at the top. Stop pedalling while moving to see the pawls ratchet.</p><div class="row"><button class="btn" data-act="pedal">${S.pedaling?'Stop pedalling':'Pedal'}</button></div></div>
+   <div class="card"><h3>Thru-axles</h3><p>12 mm axles slide through the non-drive dropout and the hub, then thread into the drive-side dropout. To remove the wheel: open the lever (or use a 6 mm hex on lever-less axles), unscrew fully, pull the axle out. On refit, push the wheel fully into the dropouts first so the rotor drops into the caliper slot.</p></div>`);
+}
+let pawlPhase=0, hubA=0, bodyA=0;
+function drawWheels(){
+  const c=whCalc();
+  const tw=38, rimW=21, k=3.4;
+  const sagPx=Math.min(30, c.sag/100*36*k*1.2);
+  let s='';
+  const cx=150, groundY=230;
+  // rim
+  s+=`<rect x="${cx-rimW/2*k-6}" y="${groundY-36*k+sagPx-36}" width="${rimW*k+12}" height="40" rx="6" fill="var(--metal)"/>`;
+  // tyre section: ellipse squashed at bottom
+  const top=groundY-36*k+sagPx-6, bottom=groundY, hw=tw/2*k*(1+sagPx/140);
+  s+=`<path d="M${cx-rimW/2*k},${top} C ${cx-hw-12},${top+10} ${cx-hw-6},${bottom-6} ${cx-hw*0.55},${bottom} L ${cx+hw*0.55},${bottom} C ${cx+hw+6},${bottom-6} ${cx+hw+12},${top+10} ${cx+rimW/2*k},${top}" fill="none" stroke="var(--rubber)" stroke-width="7"/>`;
+  if(!WH.tubeless) s+=`<path d="M${cx-rimW/2*k+6},${top+4} C ${cx-hw},${top+14} ${cx-hw+4},${bottom-10} ${cx-hw*0.5},${bottom-7} L ${cx+hw*0.5},${bottom-7} C ${cx+hw-4},${bottom-10} ${cx+hw},${top+14} ${cx+rimW/2*k-6},${top+4}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3"/>`;
+  else s+=`<path d="M${cx-hw*0.5},${bottom-9} L ${cx+hw*0.5},${bottom-9}" stroke="var(--motion)" stroke-width="4" stroke-linecap="round" opacity=".6"/>`;
+  s+=`<line x1="20" y1="${groundY+3}" x2="290" y2="${groundY+3}" stroke="var(--line)" stroke-width="3"/>`;
+  s+=`<text x="${cx}" y="22" class="t-small" text-anchor="middle">tyre section · ${WH.tubeless?'tubeless (sealant)':'with inner tube'}</text>`;
+  s+=`<text x="${cx}" y="${groundY+22}" class="t-small" text-anchor="middle">tyre sag ≈ ${fmt(c.sag,0)} %</text>`;
+  // footprint
+  const fpL=Math.min(140,c.len*0.9), fpW=tw*0.8*0.9;
+  s+=`<ellipse cx="${cx}" cy="290" rx="${fpL/2}" ry="${fpW/2}" fill="var(--accent-soft)" stroke="var(--accent)"/><text x="${cx}" y="325" class="t-small" text-anchor="middle">footprint ${fmt(c.len,0)} × ${Math.round(tw*0.8)} mm (seen from below)</text>`;
+  // freehub
+  const hx=470, hy=150, R1=100, R2=80;
+  s+=`<g id="hubRing" transform="rotate(${hubA.toFixed(1)} ${hx} ${hy})"><circle cx="${hx}" cy="${hy}" r="${R1}" fill="var(--soft)" stroke="var(--metal-d)" stroke-width="2"/>`;
+  for(let i=0;i<24;i++){const a=i/24*2*Math.PI, p1=polar([hx,hy],R2+2,a), p2=polar([hx,hy],R2+12,a+0.12), p3=polar([hx,hy],R2+12,a-0.13);
+    s+=`<path d="M${P(p1)} L${P(p2)} L${P(p3)} Z" fill="var(--metal-d)"/>`;}
+  s+=`<circle cx="${hx}" cy="${hy}" r="${R2+2}" fill="none" stroke="var(--metal-d)"/></g>`;
+  s+=`<g transform="rotate(${bodyA.toFixed(1)} ${hx} ${hy})"><circle cx="${hx}" cy="${hy}" r="${R2-8}" fill="var(--panel)" stroke="var(--ink)" stroke-width="2"/>`;
+  const lift = S.engaged ? 0 : (Math.abs(Math.sin(pawlPhase))*0.5);
+  for(let i=0;i<3;i++){const a=i/3*2*Math.PI; const base=polar([hx,hy],R2-10,a), tip=polar([hx,hy],R2+6-lift*14,a+0.32);
+    s+=`<path d="M${P(base)} L${P(tip)}" stroke="var(--accent)" stroke-width="7" stroke-linecap="round"/>`;}
+  s+=`<circle cx="${hx}" cy="${hy}" r="10" class="f-metald"/></g>`;
+  s+=`<text x="${hx}" y="22" class="t-small" text-anchor="middle">freehub · ${S.v<0.05?'stopped':S.engaged?'pawls engaged: driving':'pawls clicking: coasting'}</text>`;
+  s+=`<text x="${hx}" y="275" class="t-small" text-anchor="middle">grey ring = hub shell (turns with wheel)</text><text x="${hx}" y="290" class="t-small" text-anchor="middle">white body = freehub (turns with cassette)</text>`;
+  $('#whSvg').innerHTML=s;
+  setOut('whPsi',`${WH.psi} psi (${fmt(WH.psi*0.0689,2)} bar)`); setOut('whKg',`${WH.kg} kg`); setOut('whTer',['road','gravel','rough'][WH.terrain]);
+  const kv=$('#whKv'); if(kv) kv.innerHTML=`<span>Suggested rear</span><span class="mono">${Math.round(c.guide)} psi</span><span>Suggested front</span><span class="mono">${Math.round(c.guideF)} psi</span><span>Rear load</span><span class="mono">${fmt(c.rearKg,0)} kg</span><span>Contact patch</span><span class="mono">${Math.round(c.area)} mm²</span>`;
+  const st=[];
+  const r=WH.psi/c.guide;
+  if(r<0.8) st.push(msg(WH.tubeless?'warn':'bad', WH.tubeless?'Very low: the tyre can fold in corners and "burp" air, and rim strikes can dent the rim.':'Too low for tubes: high pinch-flat ("snakebite") risk on rocks and edges.'));
+  else if(r>1.3) st.push(msg('warn','Over-inflated for this load: harsh, less grip on gravel, and slower on rough ground.'));
+  else st.push(msg('ok','In a good range: grippy, comfortable, low flat risk.'));
+  st.push(msg('info','Suggested values are a starting point. Never exceed the maximum printed on the tyre sidewall or the rim.'));
+  $('#status').innerHTML=st.join('');
+}
+
+/* --- Headset & BB --- */
+function benchSteer(){
+  return bench(`<div class="svgbox"><svg id="stSvg" viewBox="0 0 640 400" aria-label="Exploded headset and bottom bracket"></svg></div>`,
+  'Left: headset stack, exploded so you can see the order. The top cap bolt pulls the stem down, which pushes the bearings together (preload). Right: the threaded bottom bracket, two cups screwed into the frame with the crank axle running through them.',
+  `<div class="card"><h3>Headset preload</h3>${slider('stPre','Top cap tightness',0,100,1,ST.preload,'')}<p class="note">Only adjust with the stem bolts loose. The top cap sets preload; the stem bolts lock it.</p></div>
+   <div class="card"><h3>Adjustment order</h3><ol><li>Loosen both stem clamp bolts.</li><li>Tighten the top cap until play disappears, ⅛ turn at a time.</li><li>Align the stem with the front wheel.</li><li>Tighten stem bolts alternately to the printed torque.</li><li>Recheck: brake on, rock the bike. Then lift the front: the bar should fall freely.</li></ol></div>
+   <div class="card"><h3>Bottom bracket</h3><p>A threaded BSA shell (68 mm) means the cups simply unscrew. The drive-side cup is <b>reverse-threaded</b> (turn clockwise to remove). Clean, grease the threads, and refit to the cup's printed torque. Creaks often go away with just this.</p></div>`);
+}
+function drawSteer(){
+  const p=ST.preload, gap=Math.max(0,(40-p)/40)*10, bind=p>75;
+  let s='';
+  const cx=170;
+  const items=[
+    ['Top cap & bolt',30,60,10,'var(--ink)'],
+    ['Stem (clamp bolts)',60,80,40,'var(--metal)'],
+    ['Spacers',110,58,22,'var(--metal-d)'],
+    ['Dust cover',142,74,8,'var(--metal-d)'],
+    ['Compression ring',160,50,12,'var(--accent)'],
+    ['Upper bearing 1⅛″',182,64,16,'var(--metal)'],
+    ['Head tube',210,70,90,'var(--frame)'],
+    ['Lower bearing 1½″',312,80,16,'var(--metal)'],
+    ['Crown race',336,84,8,'var(--metal-d)'],
+  ];
+  // steerer
+  s+=`<rect x="${cx-12}" y="40" width="24" height="320" fill="var(--soft)" stroke="var(--line)"/><text x="${cx}" y="378" class="t-small" text-anchor="middle">fork steerer</text>`;
+  items.forEach(([n,y,w,h,col],i)=>{
+    const yy = i<6 ? y - (6-i)*gap*0.6 : y;
+    const c2=(bind&&/bearing/.test(n))?'var(--bad)':(p<30&&/bearing/.test(n))?'var(--warn)':col;
+    s+=`<rect x="${cx-w/2}" y="${yy}" width="${w}" height="${h}" rx="3" fill="${c2}" ${n==='Head tube'?'opacity=".85"':''}/>`;
+    s+=`<line x1="${cx+w/2+4}" y1="${yy+h/2}" x2="${cx+70}" y2="${yy+h/2}" stroke="var(--line)"/><text x="${cx+74}" y="${yy+h/2+3.5}" class="t-small">${n}</text>`;
+  });
+  s+=`<path d="M${cx},20 L${cx},${36}" stroke="var(--accent)" stroke-width="3" marker-end="url(#arrSt)"/><defs><marker id="arrSt" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--accent)"/></marker></defs>`;
+  // BB
+  const bx=470, by=200;
+  s+=`<rect x="${bx-70}" y="${by-30}" width="140" height="60" rx="6" fill="var(--frame)" opacity=".85"/><text x="${bx}" y="${by-40}" class="t-small" text-anchor="middle">BB shell 68 mm (threaded)</text>`;
+  s+=`<rect x="${bx-96}" y="${by-38}" width="26" height="76" rx="4" fill="var(--metal)"/><rect x="${bx+70}" y="${by-38}" width="26" height="76" rx="4" fill="var(--metal)"/>`;
+  s+=`<rect x="${bx-130}" y="${by-8}" width="260" height="16" rx="4" fill="var(--metal-d)"/>`;
+  s+=`<text x="${bx-83}" y="${by+56}" class="t-small" text-anchor="middle">left cup</text><text x="${bx-83}" y="${by+68}" class="t-small" text-anchor="middle">normal thread</text>`;
+  s+=`<text x="${bx+83}" y="${by+56}" class="t-small" text-anchor="middle">drive cup</text><text x="${bx+83}" y="${by+68}" class="t-small" text-anchor="middle" style="fill:var(--accent)">reverse thread</text>`;
+  s+=`<text x="${bx}" y="${by+4}" class="t-small" text-anchor="middle" style="fill:var(--panel)">24 mm crank axle</text>`;
+  $('#stSvg').innerHTML=s;
+  setOut('stPre', p<30?'loose':p>75?'over-tight':'right');
+  const st=[];
+  if(p<30) st.push(msg('bad','Play in the bearings: knocks over bumps, clunks under front braking, and wears the bearing seats.'));
+  else if(bind) st.push(msg('warn','Bearings squeezed too hard: steering feels stiff and "self-centres" or notches. The bike wanders at low speed.'));
+  else st.push(msg('ok','No play, free rotation. Now tighten the stem bolts to lock it.'));
+  $('#status').innerHTML=st.join('');
+}
+
+/* bench animation hooks */
+function benchAnimating(){ return (tab==='brakes'&&BR.warp&&S.v>0.05) || (tab==='wheels'&&S.v>0.05); }
+function benchFrame(dt){
+  if(tab==='brakes'&&BR.warp){ rotorPhase+=S.v/CIRC*2*Math.PI*dt*AF; }
+  if(tab==='wheels'){
+    const w=S.v/CIRC*360*dt*AF; hubA+=w;
+    if(S.engaged) bodyA+=w; else pawlPhase+=w*0.4;
+  }
+}
+function benchTick(){ if(tab==='brakes'&&BR.warp) drawBrakes(); }
+setInterval(()=>{ if(tab==='wheels' && document.visibilityState==='visible' && running) drawWheels(); }, 60);
+setInterval(()=>{ if(tab==='brakes' && BR.warp && running) drawBrakes(); }, 60);
+
+/* ---------- Fix it ---------- */
+let sysFilter='';
+$('#sysChips').innerHTML=`<button class="chip" data-sys="" aria-pressed="true">All</button>`+Object.entries(SYS).map(([k,v])=>`<button class="chip" data-sys="${k}" aria-pressed="false">${v}</button>`).join('');
+$('#sysChips').addEventListener('click',e=>{const c=e.target.closest('[data-sys]'); if(!c) return; sysFilter=c.dataset.sys; $$('#sysChips .chip').forEach(x=>x.setAttribute('aria-pressed',x===c)); renderFix();});
+$('#fixSearch').addEventListener('input',renderFix);
+const sevName={ok:'Minor',warn:'Fix soon',bad:'Stop & fix'};
+function renderFix(){
+  const q=$('#fixSearch').value.trim().toLowerCase();
+  const list=PROBS.filter(p=>(!sysFilter||p.sys.includes(sysFilter)) && (!q || (p.t+' '+p.sub+' '+p.causes.join(' ')+' '+p.steps.join(' ')).toLowerCase().includes(q)));
+  $('#fixGrid').innerHTML=list.length?list.map(p=>`
+   <details class="fix" id="fix-${p.id}">
+    <summary><span class="sev ${p.sev}" aria-hidden="true"></span><span><span class="ttl">${p.t}</span><br><span class="sub">${p.sub}</span></span>
+      <span class="meta"><span class="pill ${p.sev}">${sevName[p.sev]}</span></span></summary>
+    <div class="fixbody">
+      <div class="row"><span class="pill info">${p.diff}</span><span class="pill info">${p.time}</span>${p.sys.map(s=>`<span class="note">${SYS[s]}</span>`).join(' · ')}</div>
+      <div><h4>Likely causes, most common first</h4><ol class="causes">${p.causes.map(c=>`<li>${c}</li>`).join('')}</ol></div>
+      <div><h4>Quick check</h4><p>${p.check}</p></div>
+      <div><h4>Fix</h4><ol>${p.steps.map(s=>`<li>${s}</li>`).join('')}</ol></div>
+      <div><h4>Tools</h4><p>${p.tools}</p></div>
+      <div class="shop"><b>Take it to a shop if:</b> ${p.shop}</div>
+      <div class="row">
+        <span class="eyebrow">Parts</span>${p.parts.map(id=>`<button class="linkchip" data-sel="${id}">${PARTS[id].name}</button>`).join('')}
+      </div>
+      ${p.demo?`<div class="row"><button class="btn primary" data-demo="${p.id}">See it happen on the ${TABS.find(t=>t.id===p.demo.tab).name.toLowerCase()} bench</button></div>`:''}
+    </div>
+   </details>`).join(''):`<p class="empty">No match. Try a simpler word like "noise", "brake" or "gear", or clear the filter.</p>`;
+}
+document.addEventListener('click',e=>{const d=e.target.closest('[data-demo]'); if(d) runDemo(d.dataset.demo);});
+function runDemo(id){
+  const p=PROBS.find(x=>x.id===id), d=p.demo; if(!d) return;
+  if(d.rd) Object.assign(RD,d.rd);
+  if(d.fd) Object.assign(FD,d.fd);
+  if(d.br){ const b={...d.br}; if(b.mode===null) delete b.mode; Object.assign(BR,b,{lever:0}); if(BR.contam||BR.warp){ if(!S.pedaling) setPedal(true); } }
+  if(d.wh) Object.assign(WH,d.wh);
+  if(d.st) Object.assign(ST,d.st);
+  if(d.front!==undefined) S.front=d.front;
+  if(d.rear!==undefined) S.rear = d.rear==='max'?S.cass.cogs.length-1:d.rear;
+  if(d.tab==='rd'&&d.rd&&d.rd.barrel!==0&&d.rear===undefined) S.rear=1;
+  setFront(S.front);
+  openTab(d.tab,true);
+  if(id==='freehub'){ S.v=Math.max(S.v,6); setPedal(false); }
+  highlight(p.parts);
+  const f=$('#benchBody .figure'); if(f){f.classList.remove('flash'); void f.offsetWidth; f.classList.add('flash');}
+}
+function openProblem(id){
+  sysFilter=''; $('#fixSearch').value=''; $$('#sysChips .chip').forEach(x=>x.setAttribute('aria-pressed',x.dataset.sys===''));
+  renderFix(); const el=$('#fix-'+id); if(!el) return; el.open=true;
+  el.scrollIntoView({behavior:reduceMotion?'auto':'smooth',block:'start'}); el.classList.add('flash');
+}
+
+/* ---------- boot ---------- */
+applyBuild('base');
+buildBike(); drawDrive(); renderInspector(); renderBench(); renderFix();
+setFront(1);
+if(S.pedaling){ S.v=vDrive(); kick(); } else { $('#pedalBtn').textContent='Pedal'; }
+updateReadouts();
+})();
+</script>
+</body>
+</html>
