@@ -11,6 +11,7 @@ It targets the no-calculator numeracy sections used by Optiver, IMC, Five Rings,
 - **Weakness model** combines accuracy and speed vs. target per skill. A skill's weakness also raises the priority of its prerequisites (slow 2-digit × 2-digit → check digit facts, addition, techniques), and wrong composite answers flag the digit facts inside them.
 - **Item-level spaced repetition** for facts: each fact has its own schedule, so slow or missed ones return within minutes and fast ones go out for days or weeks.
 - **Interleaved sessions**, misses re-asked a few questions later, error classification (carry slip, decimal place, transposition...), worked explanations after misses, short lessons for new techniques with cues that fade.
+- **Recall drill** for facts you keep calculating: a hard per-question limit only memory can beat, a Space “I don't know” key, show-then-test for new facts, answer-only feedback after misses, and a limit that tightens as you succeed.
 - **Mock tests** with no feedback until the end, Insights (diagnosis, fact heat-map, trends), and Esc to pause (the clock stops, and also when you leave the tab).
 
 Keys: type the answer (exact answers auto-advance), Enter submits, Esc pauses, Tab skips in mock tests. Fractions can be typed as `3/8`.
