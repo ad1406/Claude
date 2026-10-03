@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quant Mental Math Trainer</title>
+<style>
+:root{
+  --bg:#0e1319;--panel:#161d26;--panel2:#1d2631;--line:#2a3544;--text:#e8eef5;--muted:#8d9bab;
+  --accent:#5aa9ff;--accent2:#2f7fd6;--warn:#f0a53a;--bad:#ff8a6b;--good:#46c2a5;--weak:#f0a53a;--strong:#5aa9ff;
+}
+@media (prefers-color-scheme:light){
+  :root:not([data-theme="dark"]){--bg:#f4f6f9;--panel:#fff;--panel2:#eef2f7;--line:#d5dce6;--text:#1b2430;--muted:#5d6b7c;
+    --accent:#1d6fd1;--accent2:#1458a8;--warn:#b86e00;--bad:#c4411f;--good:#0f8a6d;--weak:#d98a1c;--strong:#2a74d0}
+}
+:root[data-theme="light"]{--bg:#f4f6f9;--panel:#fff;--panel2:#eef2f7;--line:#d5dce6;--text:#1b2430;--muted:#5d6b7c;
+  --accent:#1d6fd1;--accent2:#1458a8;--warn:#b86e00;--bad:#c4411f;--good:#0f8a6d;--weak:#d98a1c;--strong:#2a74d0}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.mono{font-family:ui-monospace,SFMono-Regular,Consolas,Menlo,monospace}
+header.top{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+.brand{font-weight:700;letter-spacing:.2px}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:none;border:0;padding:6px 12px;border-radius:8px;color:var(--muted)}
+nav button:hover{background:var(--panel2);color:var(--text)}
+nav button.on{background:var(--panel2);color:var(--text);font-weight:600}
+body.running header.top{display:none}
+main{max-width:1040px;margin:0 auto;padding:18px 16px 60px}
+.view{display:none}.view.on{display:block}
+h1{font-size:22px;margin:4px 0 12px}h2{font-size:17px;margin:22px 0 8px}h3{font-size:15px;margin:0 0 6px}
+.muted{color:var(--muted)}.small{font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0 0 14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.grid2{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 14px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent2);border-color:var(--accent2);color:#fff;font-weight:600}
+.btn.primary:hover{background:var(--accent)}
+.btn.sm{padding:4px 10px;font-size:13px}
+.btn.danger{border-color:var(--bad);color:var(--bad)}
+.tile{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;text-align:left;display:block;width:100%}
+.tile:hover{border-color:var(--accent)}
+.tile .nm{font-weight:600}.tile .lv{font-size:12px;color:var(--muted)}
+.meter{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px}
+.meter i{display:block;height:100%;background:var(--strong)}
+.kpi{display:flex;gap:22px;flex-wrap:wrap}
+.kpi div b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.kpi div span{color:var(--muted);font-size:13px}
+.tag{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:1px 9px;font-size:12px;color:var(--muted)}
+.tag.warn{border-color:var(--warn);color:var(--warn)}
+table{border-collapse:collapse;width:100%}
+td,th{padding:5px 8px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+th{color:var(--muted);font-weight:500}
+details{margin:6px 0}summary{cursor:pointer;color:var(--accent)}
+.lesson{background:var(--panel2);border-left:3px solid var(--accent);padding:8px 12px;border-radius:6px;margin:8px 0;font-size:14px}
+.lesson code,.exp{font-family:ui-monospace,Consolas,monospace}
+input[type=number],input[type=text],select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit}
+label{display:inline-flex;gap:6px;align-items:center}
+/* run */
+#run{max-width:720px;margin:0 auto;text-align:center}
+.hud{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-variant-numeric:tabular-nums;font-size:14px;margin-bottom:24px;align-items:center}
+.qtag{min-height:24px;margin-bottom:6px}
+.problem{font-size:clamp(34px,8vw,64px);font-weight:600;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.5px;word-break:break-word;min-height:1.3em}
+.psub{color:var(--muted);min-height:22px;margin-top:2px}
+#ans{font-size:clamp(28px,6vw,44px);width:min(420px,90%);text-align:center;margin-top:20px;font-family:ui-monospace,Consolas,monospace;background:var(--panel);color:var(--text);border:2px solid var(--line);border-radius:12px;padding:8px 12px;outline:none}
+#ans:focus{border-color:var(--accent)}
+.pace{height:6px;background:var(--line);border-radius:3px;margin:22px auto 0;width:min(420px,90%);position:relative;overflow:hidden}
+.pace i{display:block;height:100%;background:var(--accent);transition:none}
+.pace i.late{background:var(--warn)}
+.pace b{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--text);opacity:.5}
+.fb{margin-top:22px;min-height:70px;font-size:15px}
+.fb .ok{color:var(--good)}.fb .no{color:var(--bad)}
+.reveal{background:var(--panel);border:1px solid var(--bad);border-radius:12px;padding:14px 16px;text-align:left;margin-top:18px}
+.reveal .big{font-size:26px;font-family:ui-monospace,Consolas,monospace}
+.exp{white-space:pre-wrap;color:var(--muted);font-size:14px}
+.overlay{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;text-align:left;margin-top:10px}
+.heat{border-collapse:separate;border-spacing:2px;width:auto}
+.heat td,.heat th{padding:0;border:0;width:22px;height:22px;text-align:center;font-size:10px;color:var(--muted)}
+.heat td.c{border-radius:4px;color:rgba(0,0,0,.65);font-size:9px}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{border-radius:6px;padding:2px 7px;font-size:12px;font-family:ui-monospace,Consolas,monospace;color:rgba(0,0,0,.75)}
+.legend{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);margin:6px 0}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px}
+.warnbar{background:var(--panel2);border:1px solid var(--warn);border-radius:10px;padding:8px 12px;margin-bottom:12px;color:var(--warn);font-size:13px}
+svg text{fill:var(--muted);font-size:10px}
+@media (max-width:560px){header.top{padding:8px 10px}nav button{padding:5px 8px}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">∑ Quant Mental Math</div>
+  <nav id="nav">
+    <button data-v="home">Home</button><button data-v="train">Train</button><button data-v="learn">Learn</button>
+    <button data-v="mock">Mock test</button><button data-v="insights">Insights</button><button data-v="settings">Settings</button>
+  </nav>
+</header>
+<main>
+  <div id="storeWarn" class="warnbar" style="display:none">Browser storage is unavailable here, so progress will not persist. Use Settings → Export before closing.</div>
+  <section id="v-home" class="view"></section>
+  <section id="v-train" class="view"></section>
+  <section id="v-learn" class="view"></section>
+  <section id="v-mock" class="view"></section>
+  <section id="v-insights" class="view"></section>
+  <section id="v-settings" class="view"></section>
+  <section id="v-run" class="view"></section>
+</main>
+<noscript>This tool needs JavaScript.</noscript>
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   utilities
+   ===================================================================== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const R = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const clean = x => parseFloat(x.toPrecision(12));
+const gcd = (a, b) => b ? gcd(b, a % b) : Math.abs(a);
+const tens = n => Math.pow(10, n);
+const rnd = d => R(tens(d - 1), tens(d) - 1);
+const DAY = 864e5;
+const now = () => Date.now();
+const dayKey = (t = Date.now()) => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const M = s => String(s).replace(/-/g, '−');            // pretty minus for display
+const exact = (x, dp) => Math.abs(x * tens(dp) - Math.round(x * tens(dp))) < 1e-7;
+const decPlaces = x => { for (let d = 0; d < 9; d++) if (exact(x, d)) return d; return 9; };
+const median = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const places = n => { const s = String(n), out = []; for (let i = 0; i < s.length; i++) { const v = +s[i] * tens(s.length - 1 - i); if (v) out.push(v); } return out; };
+const digitsOf = n => String(n).replace(/[^0-9]/g, '').length;
+const isPrime = n => { if (n < 2) return false; for (let i = 2; i * i <= n; i++) if (n % i === 0) return false; return true; };
+const spf = n => { for (let i = 2; i * i <= n; i++) if (n % i === 0) return i; return n; };
+const fmtSec = s => s == null ? '–' : s.toFixed(1) + 's';
+const fmtClock = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
+/* =====================================================================
+   problem helpers
+   ===================================================================== */
+function rat(n, d) { if (d < 0) { n = -n; d = -d; } const g = gcd(n, d) || 1; return { n: n / g, d: d / g }; }
+// answer fields for a rational result: exact decimal if short, else 3dp with tolerance; fractions always accepted
+function ratProb(r) {
+  const real = r.n / r.d; let t = r.d; while (t % 2 === 0) t /= 2; while (t % 5 === 0) t /= 5;
+  const p = { real, frac: true, simp: r.d === 1 ? String(r.n) : r.n + '/' + r.d };
+  if (t === 1 && decPlaces(real) <= 3) p.ans = clean(real); else { p.ans = +real.toFixed(3); p.atol = 0.0006; }
+  return p;
+}
+function digitFacts(a, b) {           // multiplication facts hidden inside a long multiplication
+  const da = String(a).split('').map(Number), db = String(b).split('').map(Number), out = new Set();
+  da.forEach(x => db.forEach(y => { if (x >= 2 && y >= 2) out.add(Math.min(x, y) + 'x' + Math.max(x, y)); }));
+  return [...out];
+}
+function expAdd(a, b) { let cur = a; const steps = [a]; for (const v of places(b)) { cur += v; steps.push(cur); } return `${a} + ${b}: ` + steps.join(' → ') + `   (add ${places(b).join(', ')} in turn, left to right)`; }
+function expSub(a, b) { let cur = a; const steps = [a]; for (const v of places(b)) { cur -= v; steps.push(cur); } return `${a} − ${b}: ` + steps.map(M).join(' → ') + `   (subtract ${places(b).join(', ')} in turn)`; }
+function expMul(a, b) {
+  const near = n => n >= 12 && [8, 9, 1, 2].includes(n % 10), len = n => String(n).length;
+  let sm, big;
+  if (len(a) !== len(b)) { sm = len(a) < len(b) ? a : b; } else sm = a < b ? a : b;
+  big = sm === a ? b : a;
+  if (sm < 10) { const ps = places(big); if (ps.length === 1) return `${a}×${b} = ${a * b}`; return `${big}×${sm} = ` + ps.map(v => `${v}×${sm}`).join(' + ') + ' = ' + ps.map(v => v * sm).join(' + ') + ` = ${a * b}`; }
+  if (near(b) && !near(a)) { sm = b; big = a; } else if (near(a) && !near(b)) { sm = a; big = b; }
+  if (near(sm)) { const r = Math.round(sm / 10) * 10, d = sm - r, o = d < 0 ? '−' : '+'; return `${big}×${sm} = ${big}×${r} ${o} ${big}×${Math.abs(d)} = ${big * r} ${o} ${big * Math.abs(d)} = ${a * b}`; }
+  const ps = places(sm); if (ps.length === 1) return `${a}×${b} = ${a * b}`;
+  return `${big}×${sm} = ` + ps.map(v => `${big}×${v}`).join(' + ') + ' = ' + ps.map(v => big * v).join(' + ') + ` = ${a * b}`;
+}
+
+/* =====================================================================
+   skill definitions
+   ===================================================================== */
+const SKILLS = [], SK = {};
+function def(o) { SKILLS.push(o); SK[o.id] = o; }
+const memo = (f) => { const c = {}; return L => c[L] || (c[L] = f(L)); };
+
+/* ---- facts (item level, spaced repetition) ---- */
+const MUL_MAX = [9, 12, 15, 20];
+const mulPool = memo(L => { const out = [], m = MUL_MAX[L - 1]; for (let a = 2; a <= m; a++) for (let b = a; b <= m; b++) out.push({ key: a + 'x' + b, band: MUL_MAX.findIndex(x => b <= x) + 1 }); return out; });
+def({ id: 'mul', cat: 'Facts', name: 'Times tables', imp: 1, pre: [], maxL: 4, T: [1.2, 1.4, 1.7, 2.0], names: ['2–9', 'to 12', 'to 15', 'to 20'],
+  desc: 'Instant recall of products. Every fact is tracked and rescheduled individually.',
+  item: { pool: mulPool, make(key) { let [a, b] = key.split('x').map(Number); if (Math.random() < .5) [a, b] = [b, a]; return { text: `${a} × ${b}`, expr: `${a}*${b}`, ans: a * b, explain: a * b <= 100 && Math.max(a, b) <= 10 ? `${a} × ${b} = ${a * b}` : expMul(a, b) }; } } });
+def({ id: 'divf', cat: 'Facts', name: 'Division facts', imp: .8, pre: ['mul'], maxL: 4, T: [1.4, 1.7, 2.0, 2.4], names: ['2–9', 'to 12', 'to 15', 'to 20'],
+  desc: 'Times tables run backwards: 168 ÷ 12.',
+  item: { pool: mulPool, make(key) { const [a, b] = key.split('x').map(Number); const d = Math.random() < .5 ? a : b, q = d === a ? b : a; return { text: `${a * b} ÷ ${d}`, expr: `${a * b}/${d}`, ans: q, explain: `${a * b} ÷ ${d} = ${q} because ${d} × ${q} = ${a * b}` }; } } });
+const SQR = [[2, 20], [21, 35], [36, 50], [51, 75], [76, 99]];
+const sqPool = memo(L => { const out = []; for (let n = SQR[L - 1][0]; n <= SQR[L - 1][1]; n++) out.push({ key: String(n), band: L }); const all = []; for (let l = 1; l <= L; l++) for (let n = SQR[l - 1][0]; n <= SQR[l - 1][1]; n++) all.push({ key: String(n), band: l }); return all; });
+function expSq(n) {
+  if (n <= 10) return `${n}² = ${n * n}`;
+  if (n % 10 === 5) { const k = (n - 5) / 10; return `${n}² : ${k} × ${k + 1} = ${k * (k + 1)}, then append 25 → ${n * n}`; }
+  if (n >= 45 && n <= 55) { const d = n - 50; return `${n}² = 2500 ${d < 0 ? '−' : '+'} ${100 * Math.abs(d)} + ${d * d} = ${n * n}`; }
+  if (n >= 90) { const d = 100 - n; return `${n}² = 10000 − ${200 * d} + ${d * d} = ${n * n}`; }
+  const m = Math.round(n / 10) * 10, d = n - m;
+  return `${n}² = (${m} ${d < 0 ? '−' : '+'} ${Math.abs(d)})² = ${m * m} ${d < 0 ? '−' : '+'} ${2 * m * Math.abs(d)} + ${d * d} = ${n * n}`;
+}
+def({ id: 'sq', cat: 'Facts', name: 'Squares', imp: .7, pre: ['mul'], maxL: 5, T: [1.3, 2.5, 3.5, 4.5, 6], names: ['to 20', '21–35', '36–50', '51–75', '76–99'],
+  desc: 'Squares up to 99, with the shortcuts that make large ones quick.',
+  item: { pool: sqPool, make(key) { const n = +key; return { text: `${n}²`, html: `${n}<sup>2</sup>`, expr: `${n}*${n}`, ans: n * n, explain: expSq(n) }; } } });
+const POW = (() => {
+  const m = new Map(), add = (b, e, L) => { const k = b + '^' + e; if (!m.has(k)) m.set(k, { key: k, b, e, band: L }); };
+  for (let e = 3; e <= 10; e++) add(2, e, 1); for (let n = 3; n <= 10; n++) add(n, 3, 1); add(3, 4, 1); add(5, 4, 1);
+  for (let e = 11; e <= 16; e++) add(2, e, 2); for (let e = 5; e <= 7; e++) add(3, e, 2); for (let n = 11; n <= 15; n++) add(n, 3, 2); add(4, 4, 2); add(4, 5, 2); add(6, 4, 2); add(7, 4, 2);
+  for (let e = 17; e <= 20; e++) add(2, e, 3); for (let e = 8; e <= 10; e++) add(3, e, 3); add(4, 6, 3); add(4, 7, 3); add(5, 5, 3); add(5, 6, 3); add(6, 5, 3); add(7, 5, 3); add(8, 4, 3); add(9, 4, 3); add(9, 5, 3);
+  return [...m.values()];
+})();
+def({ id: 'pow', cat: 'Facts', name: 'Powers', imp: .4, pre: ['mul'], maxL: 3, T: [1.8, 2.8, 4], names: ['2ⁿ ≤ 1024, cubes', '2¹⁶, 3⁷, cubes ≤ 15', '2²⁰, 3¹⁰, 7⁵…'],
+  desc: 'Powers of 2, cubes and other anchor values.',
+  item: { pool: L => POW.filter(x => x.band <= L), make(key) { const x = POW.find(p => p.key === key); const ans = Math.pow(x.b, x.e); return { text: `${x.b}^${x.e}`, html: `${x.b}<sup>${x.e}</sup>`, expr: `${x.b}**${x.e}`, ans, explain: x.b === 2 && x.e > 10 ? `2^${x.e} = 1024 × 2^${x.e - 10} = ${ans}` : `${x.b}^${x.e} = ${Math.pow(x.b, x.e - 1)} × ${x.b} = ${ans}` }; } } });
+const FD_Q = [[2, 3, 4, 5, 8, 10], [6, 9, 11, 12, 16, 20, 25], [7, 13, 14, 15, 17, 18, 19]];
+const FD = (() => { const out = []; FD_Q.forEach((qs, i) => qs.forEach(q => { const ps = i === 0 ? [...Array(q - 1).keys()].map(x => x + 1) : i === 1 ? [1, 2, q - 1] : [1, 2, 3]; [...new Set(ps)].filter(p => p < q && gcd(p, q) === 1).forEach(p => out.push({ key: p + '/' + q, p, q, band: i + 1 })); })); return out; })();
+def({ id: 'fd', cat: 'Facts', name: 'Fractions ↔ decimals', imp: .8, pre: ['divf'], maxL: 3, T: [1.5, 2, 3], names: ['halves…tenths', 'sixths…25ths', 'sevenths…19ths'],
+  desc: 'Know 1/7 = 0.142857, 3/8 = 0.375, 5/6 = 83.3% on sight.',
+  item: { pool: L => FD.filter(x => x.band <= L), make(key) {
+    const x = FD.find(f => f.key === key), val = x.p / x.q; const r = Math.random();
+    if (x.p === 1 && x.q >= 3 && r < .22) return { text: `1 / n ≈ ${val.toPrecision(3)}`, sub: 'find n', ans: x.q, explain: `1/${x.q} = ${val.toFixed(6)}…` };
+    if (r < .62) return { text: `${x.p}/${x.q} = ?`, sub: 'decimal, 3 d.p.', ans: +val.toFixed(3), real: val, atol: .0006, explain: `${x.p}/${x.q} = ${val.toFixed(6)}…` + (x.q === 7 ? '\n(sevenths cycle 142857: 1/7=.142857, 2/7=.285714, 3/7=.428571, 4/7=.571428, 5/7=.714285, 6/7=.857142)' : '') };
+    return { text: `${x.p}/${x.q} = ?`, sub: 'as a percent, 1 d.p.', ans: +(val * 100).toFixed(1), real: val * 100, atol: .06, explain: `${x.p}/${x.q} = ${(val * 100).toFixed(3)}%` };
+  } } });
+def({ id: 'prime', cat: 'Facts', name: 'Primes & factors', imp: .3, pre: ['mul', 'divf'], maxL: 3, T: [2.5, 4.5, 8], names: ['< 100', '< 300', '< 1000'],
+  desc: 'Spot factors and primality quickly.',
+  gen(L) { const [lo, hi] = [[12, 99], [100, 300], [300, 999]][L - 1]; let N; if (Math.random() < .3) { do N = R(lo, hi); while (!isPrime(N)); } else { do N = R(lo, hi); while (isPrime(N)); }
+    const f = spf(N); return { text: `Smallest prime factor of ${N}`, sub: `enter ${N} itself if it is prime`, ans: f, explain: f === N ? `${N} is prime: no prime up to ${Math.floor(Math.sqrt(N))} divides it` : `${N} = ${f} × ${N / f}` }; } });
+
+/* ---- arithmetic ---- */
+def({ id: 'add', cat: 'Arithmetic', name: 'Addition', imp: 1, pre: [], maxL: 5, T: [2, 2.6, 3.5, 4.8, 7], names: ['2d+2d', '3d+2d', '3d+3d', '4d+3d', '3 × 4-digit'],
+  desc: 'Multi-digit sums, left to right.',
+  gen(L) { let nums; if (L === 1) nums = [rnd(2), rnd(2)]; else if (L === 2) nums = [rnd(3), rnd(2)]; else if (L === 3) nums = [rnd(3), rnd(3)]; else if (L === 4) nums = [rnd(4), rnd(3)]; else nums = [rnd(4), rnd(4), rnd(3)];
+    if (L < 5 && Math.random() < .5) nums.reverse(); const ans = nums.reduce((a, b) => a + b, 0);
+    return { text: nums.join(' + '), expr: nums.join('+'), ans, explain: nums.length === 2 ? expAdd(nums[0], nums[1]) : `${nums[0]} + ${nums[1]} = ${nums[0] + nums[1]}; + ${nums[2]} = ${ans}` }; } });
+def({ id: 'sub', cat: 'Arithmetic', name: 'Subtraction', imp: 1, pre: ['add'], maxL: 5, T: [2, 2.7, 3.6, 5, 7], names: ['2d−2d', '3d−2d', '3d−3d', '4d−3d (some < 0)', '4d−4d'],
+  desc: 'Borrow-free chunking and compensation.',
+  gen(L) { let a, b; if (L === 1) [a, b] = [rnd(2), rnd(2)]; else if (L === 2) [a, b] = [rnd(3), rnd(2)]; else if (L === 3) [a, b] = [rnd(3), rnd(3)]; else if (L === 4) [a, b] = [rnd(4), rnd(3)]; else [a, b] = [rnd(4), rnd(4)];
+    if (a < b && !(L >= 3 && Math.random() < .2)) [a, b] = [b, a]; const ans = a - b;
+    return { text: `${a} − ${b}`, expr: `${a}-${b}`, ans, neg: ans < 0, explain: ans >= 0 ? expSub(a, b) : `${a} − ${b} = −(${b} − ${a}) = ${M(ans)}` }; } });
+def({ id: 'mul1', cat: 'Arithmetic', name: 'Multi-digit × digit', imp: 1, pre: ['mul', 'add'], maxL: 4, T: [2.2, 3.5, 5.5, 7], names: ['2d × 1d', '3d × 1d', '4d × 1d', '4d × (6–9)'],
+  desc: 'Place-value distribution: 487 × 6 = 2400 + 480 + 42.',
+  gen(L) { let n, m; if (L === 1) { n = rnd(2); m = R(3, 9); } else if (L === 2) { n = rnd(3); m = R(3, 9); } else if (L === 3) { n = rnd(4); m = R(3, 9); } else { n = rnd(4); m = R(6, 9); }
+    if (Math.random() < .5) return { text: `${m} × ${n}`, expr: `${m}*${n}`, ans: m * n, facts: digitFacts(n, m), explain: expMul(n, m) };
+    return { text: `${n} × ${m}`, expr: `${n}*${m}`, ans: m * n, facts: digitFacts(n, m), explain: expMul(n, m) }; } });
+def({ id: 'mul2', cat: 'Arithmetic', name: 'Multi-digit × multi-digit', imp: 1.2, pre: ['mul1', 'sq', 'add', 't_near', 't_diffsq'], maxL: 5, T: [4.5, 7, 10, 16, 26], names: ['teen × 2d', '21–49 × 11–49', '2d × 2d', '2d × 3d', '3d × 3d'],
+  desc: 'The headline skill for most numeracy tests.',
+  gen(L) { let a, b; if (L === 1) { a = R(11, 20); b = R(11, 99); } else if (L === 2) { a = R(21, 49); b = R(11, 49); } else if (L === 3) { a = R(11, 99); b = R(11, 99); } else if (L === 4) { a = R(11, 99); b = R(101, 999); } else { a = R(101, 499); b = R(101, 499); }
+    if (Math.random() < .5) [a, b] = [b, a]; return { text: `${a} × ${b}`, expr: `${a}*${b}`, ans: a * b, facts: digitFacts(a, b), explain: expMul(a, b) }; } });
+def({ id: 'div', cat: 'Arithmetic', name: 'Division', imp: 1, pre: ['divf', 'mul1', 'sub'], maxL: 5, T: [2.5, 4, 7, 7, 9], names: ['2d ÷ 1d', '3d ÷ 1d', '4d ÷ 2d', 'terminating decimals', '2 d.p. (÷3,6,7,9…)'],
+  desc: 'Exact quotients, then decimals.',
+  gen(L) { let d, q, x, ans, real, p;
+    if (L === 1) { d = R(3, 9); q = R(6, Math.floor(99 / d)); x = d * q; ans = q; }
+    else if (L === 2) { d = R(3, 9); q = R(12, Math.floor(999 / d)); x = d * q; ans = q; }
+    else if (L === 3) { d = R(11, 29); q = R(11, Math.min(99, Math.floor(9999 / d))); x = d * q; ans = q; }
+    else if (L === 4) { d = pick([2, 4, 5, 8, 16, 20, 25]); do { x = R(101, 999); ans = x / d; } while (!exact(ans, 3) || Number.isInteger(ans)); }
+    else { d = pick([3, 6, 7, 9, 11, 12, 13]); do x = R(100, 999); while (x % d === 0); real = x / d; ans = +real.toFixed(2); }
+    p = { text: `${x} ÷ ${d}`, expr: `${x}/${d}`, ans, explain: L <= 3 ? `${x} ÷ ${d}: build the quotient by place — ${d} × ${places(ans).join(' + ')} = ${places(ans).map(v => v * d).join(' + ')} = ${x}` : `${x} ÷ ${d} = ${real ? real.toFixed(4) + '…' : ans}` };
+    if (L === 5) { p.real = real; p.atol = .006; p.sub = '2 d.p.'; } if (L === 4) p.sub = 'exact decimal'; return p; } });
+def({ id: 'dec', cat: 'Arithmetic', name: 'Decimals', imp: .9, pre: ['mul1', 'add'], maxL: 5, T: [2.5, 4, 4.5, 7, 8], names: ['1 d.p. ±', '2 d.p. ±', '1 d.p. × digit, 0.a × 0.b', '2d × 1 d.p.', 'divide by decimals'],
+  desc: 'Decimal placement and decimal arithmetic.',
+  gen(L) { let text, expr, ans, explain;
+    if (L === 1) { const a = R(10, 199) / 10, b = R(10, 99) / 10, add = Math.random() < .5; const hi = Math.max(a, b), lo = Math.min(a, b); text = add ? `${a.toFixed(1)} + ${b.toFixed(1)}` : `${hi.toFixed(1)} − ${lo.toFixed(1)}`; expr = text.replace('−', '-'); ans = clean(add ? a + b : hi - lo); explain = `Treat as integers ×10: ${text.replace(/\d+\.\d/g, m => Math.round(m * 10))} = ${Math.round(ans * 10)}, then ÷10`; }
+    else if (L === 2) { const a = R(100, 999) / 100, b = R(10, 999) / 100, add = Math.random() < .5; const hi = Math.max(a, b), lo = Math.min(a, b); text = add ? `${a.toFixed(2)} + ${b.toFixed(2)}` : `${hi.toFixed(2)} − ${lo.toFixed(2)}`; expr = text.replace('−', '-'); ans = clean(add ? a + b : hi - lo); explain = `Treat as integers ×100: ${text.replace(/\d+\.\d\d/g, m => Math.round(m * 100))} = ${Math.round(ans * 100)}, then ÷100`; }
+    else if (L === 3) { let A, B, a, b, k; if (Math.random() < .5) { do A = R(11, 99); while (A % 10 === 0); B = R(2, 9); a = A / 10; b = B; k = 1; } else { A = R(2, 9); B = R(2, 9); a = A / 10; b = B / 10; k = 2; } text = `${a} × ${b}`; expr = `${a}*${b}`; ans = clean(a * b); explain = `${A} × ${B} = ${A * B}; ${k} decimal place${k > 1 ? 's' : ''} in total → ${ans}`; }
+    else if (L === 4) { let A, B, a, b, k; if (Math.random() < .6) { A = R(12, 48); do B = R(11, 99); while (B % 10 === 0); a = A; b = B / 10; k = 1; } else { A = R(11, 99); B = R(12, 48); a = A / 100; b = B; k = 2; } text = `${a} × ${b}`; expr = `${a}*${b}`; ans = clean(a * b); explain = `${A} × ${B} = ${A * B}; ${k} decimal place${k > 1 ? 's' : ''} → ${ans}`; }
+    else { const d = pick([.2, .25, .4, .5, 1.5, 2.5, .05, .15, .8, 1.2]); const q = pick([R(3, 60), R(3, 60), R(11, 99) / 10]); const x = clean(d * q); text = `${x} ÷ ${d}`; expr = `${x}/${d}`; ans = clean(x / d); explain = `Multiply both by ${tens(Math.max(decPlaces(x), decPlaces(d)))}: ${Math.round(x * tens(Math.max(decPlaces(x), decPlaces(d))))} ÷ ${Math.round(d * tens(Math.max(decPlaces(x), decPlaces(d))))} = ${ans}`; }
+    return { text, expr, ans, explain }; } });
+def({ id: 'pct', cat: 'Arithmetic', name: 'Percentages', imp: .9, pre: ['mul1', 'dec', 'fd'], maxL: 5, T: [2.5, 4, 5.5, 7, 10], names: ['10/25/50% of round', 'multiples of 5%', 'any %', 'change & increase', 'reverse & successive'],
+  desc: 'Of, change, reverse and compounding.',
+  gen(L) {
+    let p, N, ans, text, expr, explain;
+    const of = (pp, NN) => ({ text: `${pp}% of ${NN}`, expr: `${pp}/100*${NN}`, ans: clean(pp * NN / 100), explain: `10% of ${NN} = ${clean(NN / 10)}; build ${pp}% from 10%, 5%, 1% pieces (or ${NN}% of ${pp})` });
+    if (L === 1) { p = pick([10, 50, 25, 20, 5, 75]); N = 20 * R(2, 40); return of(p, N); }
+    if (L === 2) { do { p = pick([15, 30, 40, 60, 70, 80, 90, 35, 45, 12, 8]); N = R(20, 500); } while (!exact(p * N / 100, 1)); return of(p, N); }
+    if (L === 3) { do { p = R(3, 97); N = R(120, 990); } while (p % 5 === 0 || !exact(p * N / 100, 1)); return of(p, N); }
+    if (L === 4) {
+      const t = R(1, 3);
+      if (t === 1) { let old, pc; do { old = R(20, 200); pc = pick([10, 20, 25, 50, 15, 5, 40, 30, 60, 12.5]); } while (!exact(old * pc / 100, 1)); const up = Math.random() < .6; const nw = clean(old * (1 + (up ? 1 : -1) * pc / 100)); return { text: `${old} → ${nw}`, sub: '% change', expr: `(${nw}-${old})/${old}*100`, ans: clean((up ? 1 : -1) * pc), explain: `change = ${M(clean(nw - old))}; ${M(clean(nw - old))}/${old} = ${M(clean((up ? 1 : -1) * pc))}%` }; }
+      let N2, pc; do { N2 = R(40, 400); pc = pick([10, 15, 20, 25, 30, 12, 5, 35, 40]); } while (!exact(N2 * pc / 100, 2));
+      const up = t === 2; return { text: `${up ? 'Increase' : 'Decrease'} ${N2} by ${pc}%`, expr: `${N2}*(1${up ? '+' : '-'}${pc}/100)`, ans: clean(N2 * (1 + (up ? 1 : -1) * pc / 100)), explain: `${pc}% of ${N2} = ${clean(N2 * pc / 100)}; ${N2} ${up ? '+' : '−'} ${clean(N2 * pc / 100)} = ${clean(N2 * (1 + (up ? 1 : -1) * pc / 100))}` };
+    }
+    const t = R(1, 3);
+    if (t === 1) { let orig, pc; do { orig = 20 * R(2, 30); pc = pick([10, 20, 25, 30, 40, 50, 15, 5]); } while (!exact(orig * (1 - pc / 100), 2)); const disc = clean(orig * (1 - pc / 100)); return { text: `After a ${pc}% discount the price is ${disc}`, sub: 'original price?', expr: `${disc}/(1-${pc}/100)`, ans: orig, explain: `${disc} is ${100 - pc}% of the original → ${disc} ÷ ${100 - pc / 1}% = ${orig}` }; }
+    if (t === 2) { let A, B; do { A = pick([8, 16, 20, 24, 25, 32, 40, 48, 50, 64, 80, 120, 160, 200]); B = R(2, A - 1); } while (!exact(B / A * 100, 1)); return { text: `${B} is what % of ${A}?`, expr: `${B}/${A}*100`, ans: clean(B / A * 100), explain: `${B}/${A} = ${clean(B / A)} = ${clean(B / A * 100)}%` }; }
+    p = pick([5, 10, 15, 20, 25, 30, 40, 50]); return { text: `+${p}% then −${p}%`, sub: 'net % change', expr: `-${p}*${p}/100`, ans: clean(-p * p / 100), explain: `(1+${p / 100})(1−${p / 100}) = 1 − ${p / 100}² → net −${p * p / 100}%` };
+  } });
+def({ id: 'frac', cat: 'Arithmetic', name: 'Fractions', imp: .9, pre: ['fd', 'mul1', 'divf'], maxL: 5, T: [4, 5.5, 6.5, 9, 12], names: ['fraction of N', '+/− friendly denominators', '× and ÷', '+/− unlike denominators', 'compound & mixed'],
+  desc: 'Answer as a fraction or a decimal — either is accepted.',
+  gen(L) {
+    const fp = (text, expr, n, d, how) => { const r = rat(n, d), pr = ratProb(r); return Object.assign(pr, { text, expr, explain: `${how} = ${r.n}${r.d === 1 ? '' : '/' + r.d}` + (r.d === 1 ? '' : ` ≈ ${(r.n / r.d).toFixed(3)}`) }); };
+    if (L === 1) { const q = pick([3, 4, 5, 6, 8, 10, 12]), p = R(1, q - 1), N = q * R(3, Math.floor(400 / q)); return { text: `${p}/${q} of ${N}`, expr: `${p}/${q}*${N}`, ans: p * N / q, explain: `${N} ÷ ${q} = ${N / q}; × ${p} = ${p * N / q}` }; }
+    if (L === 2) { let a, b, c, d, n, den, add; do { b = pick([2, 4, 5, 8, 10, 20]); d = pick([2, 4, 5, 8, 10, 20]); a = R(1, b - 1); c = R(1, d - 1); add = Math.random() < .6; n = add ? a * d + c * b : a * d - c * b; den = b * d; } while (n <= 0 || b === d); return fp(`${a}/${b} ${add ? '+' : '−'} ${c}/${d}`, `${a}/${b}${add ? '+' : '-'}${c}/${d}`, n, den, `common denominator ${den}: (${a * d} ${add ? '+' : '−'} ${c * b})/${den}`); }
+    if (L === 3) { const b = R(2, 9), d = R(2, 9), a = R(1, b - 1) , c = R(1, d - 1); if (Math.random() < .55) return fp(`${a}/${b} × ${c}/${d}`, `${a}/${b}*${c}/${d}`, a * c, b * d, `(${a}×${c})/(${b}×${d}) = ${a * c}/${b * d}`); return fp(`${a}/${b} ÷ ${c}/${d}`, `(${a}/${b})/(${c}/${d})`, a * d, b * c, `${a}/${b} × ${d}/${c} = ${a * d}/${b * c}`); }
+    if (L === 4) { let a, b, c, d, n, add; do { b = R(3, 12); d = R(3, 12); a = R(1, b - 1); c = R(1, d - 1); add = Math.random() < .6; n = add ? a * d + c * b : a * d - c * b; } while (n <= 0 || b === d || gcd(b, d) === Math.min(b, d)); return fp(`${a}/${b} ${add ? '+' : '−'} ${c}/${d}`, `${a}/${b}${add ? '+' : '-'}${c}/${d}`, n, b * d, `(${a * d} ${add ? '+' : '−'} ${c * b})/${b * d}`); }
+    if (Math.random() < .5) { const a = R(2, 12); let b; do b = R(2, 12); while (b === a); return fp(`1 / (1/${a} + 1/${b})`, `1/(1/${a}+1/${b})`, a * b, a + b, `1/(${a + b}/${a * b}) = ${a * b}/${a + b}`); }
+    const w1 = R(1, 4), q1 = R(2, 5), p1 = R(1, q1 - 1), w2 = R(1, 4), q2 = R(2, 5), p2 = R(1, q2 - 1);
+    return fp(`${w1} ${p1}/${q1} × ${w2} ${p2}/${q2}`, `(${w1}+${p1}/${q1})*(${w2}+${p2}/${q2})`, (w1 * q1 + p1) * (w2 * q2 + p2), q1 * q2, `${w1 * q1 + p1}/${q1} × ${w2 * q2 + p2}/${q2}`);
+  } });
+def({ id: 'est', cat: 'Arithmetic', name: 'Estimation', imp: .5, pre: ['mul1'], maxL: 4, T: [5, 7, 9, 11], names: ['2d×2d ±5%', '3d×2d ±4%', '4d×3d or ÷2d ±3%', '± 2%'],
+  desc: 'Fast, controlled approximation when exactness is too slow.',
+  gen(L) { const tol = [.05, .04, .03, .02][L - 1]; let a, b, real, text, expr;
+    if (L === 1) { a = R(12, 99); b = R(12, 99); } else if (L === 2) { a = R(100, 999); b = R(11, 99); } else { a = L === 3 ? R(1000, 9999) : R(2000, 9999); b = L === 3 ? R(100, 999) : R(101, 999); }
+    if (L >= 3 && Math.random() < .4) { do { a = R(1000, 9999); b = R(11, 99); } while (a / b < 50); real = a / b; text = `${a} ÷ ${b}`; expr = `${a}/${b}`; } else { real = a * b; text = `${a} × ${b}`; expr = `${a}*${b}`; }
+    const r2 = n => { const k = Math.max(0, digitsOf(Math.round(n)) - 2); return Math.round(n / tens(k)) * tens(k); };
+    const ra = r2(a), rb = b > 99 ? r2(b) : b, isMul = text.includes('×'), approx = isMul ? ra * rb : ra / rb;
+    return { text, sub: `estimate, within ±${tol * 100}%`, expr, real, ans: Math.round(real), rtol: tol, explain: `Round to two significant digits: ${ra} ${isMul ? '×' : '÷'} ${rb} ≈ ${Math.round(approx * 10) / 10}; exact value ${Math.round(real * 100) / 100}` }; } });
+def({ id: 'chain', cat: 'Arithmetic', name: 'Mixed operations', imp: .7, pre: ['mul', 'add', 'sub'], maxL: 5, T: [3, 4.5, 7, 9, 12], names: ['a + b×c', '(a+b)×c − d', 'a×b − c×d', '(a+b)×(c−d)', '(a×b − c) ÷ d'],
+  desc: 'Order of operations with interim results held in your head.',
+  gen(L) { let text, expr, ans, explain;
+    if (L === 1) { const a = R(2, 30), b = R(2, 9), c = R(2, 9); if (Math.random() < .5) { text = `${a} + ${b} × ${c}`; expr = `${a}+${b}*${c}`; ans = a + b * c; explain = `${b}×${c} = ${b * c}; ${a} + ${b * c} = ${ans}`; } else { const a2 = b * c + R(1, 20); text = `${b} × ${c} − ${a2 - b * c}`.replace(/^/, ''); expr = `${b}*${c}-${a2 - b * c}`; ans = b * c - (a2 - b * c); explain = `${b}×${c} = ${b * c}; ${b * c} − ${a2 - b * c} = ${M(ans)}`; } }
+    else if (L === 2) { if (Math.random() < .5) { const a = R(5, 25), b = R(5, 25), c = R(2, 9), d = R(5, 40); text = `(${a} + ${b}) × ${c} − ${d}`; expr = `(${a}+${b})*${c}-${d}`; ans = (a + b) * c - d; explain = `${a}+${b} = ${a + b}; ×${c} = ${(a + b) * c}; −${d} = ${ans}`; } else { const a = R(3, 9), b = R(3, 9), c = R(3, 9), d = R(3, 9); text = `${a} × ${b} + ${c} × ${d}`; expr = `${a}*${b}+${c}*${d}`; ans = a * b + c * d; explain = `${a * b} + ${c * d} = ${ans}`; } }
+    else if (L === 3) { let a, b, c, d; do { a = R(11, 49); b = R(3, 9); c = R(11, 49); d = R(3, 9); } while (a * b < c * d); text = `${a} × ${b} − ${c} × ${d}`; expr = `${a}*${b}-${c}*${d}`; ans = a * b - c * d; explain = `${a * b} − ${c * d} = ${ans}`; }
+    else if (L === 4) { let a, b, c, d; do { a = R(11, 49); b = R(11, 49); c = R(11, 29); d = R(2, 10); } while (c <= d); text = `(${a} + ${b}) × (${c} − ${d})`; expr = `(${a}+${b})*(${c}-${d})`; ans = (a + b) * (c - d); explain = `${a + b} × ${c - d} = ${ans}`; }
+    else { const a = R(11, 49), b = R(3, 9), d = pick([3, 4, 6, 7, 8, 9]); let c = R(5, 50); c += (a * b - c) % d; if (c <= 0) c += d; text = `(${a} × ${b} − ${c}) ÷ ${d}`; expr = `(${a}*${b}-${c})/${d}`; ans = (a * b - c) / d; explain = `${a * b} − ${c} = ${a * b - c}; ÷ ${d} = ${ans}`; }
+    return { text, expr, ans, explain }; } });
+def({ id: 'word', cat: 'Arithmetic', name: 'Averages, rates & ratios', imp: .6, pre: ['pct', 'div'], maxL: 4, T: [5, 7, 10, 13], names: ['mean of a list', 'proportion & rate', 'weighted & updated mean', 'work rates & mixtures'],
+  desc: 'Applied quick calculations that appear in numeracy sections.',
+  gen(L) {
+    if (L === 1) { const n = R(4, 6), m = R(40, 95); let offs, s; do { offs = Array.from({ length: n - 1 }, () => R(-15, 15)); s = offs.reduce((a, b) => a + b, 0); } while (Math.abs(s) > 25); offs.push(-s); const xs = shuffle(offs.map(o => m + o)); return { text: `Mean of ${xs.join(', ')}`, expr: `(${xs.join('+')})/${n}`, ans: m, explain: `Anchor at ${m}: deviations ${offs.map(M).join(', ')} sum to 0 → mean ${m}` }; }
+    if (L === 2) { if (Math.random() < .5) { const u = pick([.5, .75, 1.25, 1.5, 2.5, 3.5, 4, 5, 6, 7.5, 12]), a = R(3, 12); let b; do b = R(3, 20); while (b === a); return { text: `${a} items cost ${clean(a * u)}. What do ${b} cost?`, expr: `${clean(a * u)}/${a}*${b}`, ans: clean(b * u), explain: `unit price ${clean(a * u)} ÷ ${a} = ${u}; × ${b} = ${clean(b * u)}` }; } const t = pick([.5, 1.5, 2.5, 3, 4, 6, 7.5, 2]), s = R(4, 18) * 5; return { text: `${clean(t * s)} km in ${t} h`, sub: 'average speed (km/h)', expr: `${clean(t * s)}/${t}`, ans: s, explain: `${clean(t * s)} ÷ ${t} = ${s}` }; }
+    if (L === 3) { if (Math.random() < .5) { let n1, m1, n2, m2, ans; do { n1 = R(2, 9) * 5; n2 = R(2, 9) * 5; m1 = R(50, 90); m2 = R(50, 90); ans = (n1 * m1 + n2 * m2) / (n1 + n2); } while (!exact(ans, 1)); return { text: `${n1} items average ${m1}; ${n2} items average ${m2}`, sub: 'combined average?', expr: `(${n1}*${m1}+${n2}*${m2})/${n1 + n2}`, ans: clean(ans), explain: `weighted by counts: (${n1 * m1} + ${n2 * m2}) / ${n1 + n2} = ${clean(ans)}` }; }
+      let n, m, x, ans; do { n = R(3, 12); m = R(20, 80); x = R(20, 120); ans = (n * m + x) / (n + 1); } while (!exact(ans, 1)); return { text: `Mean of ${n} numbers is ${m}. Add ${x}.`, sub: 'new mean?', expr: `(${n}*${m}+${x})/${n + 1}`, ans: clean(ans), explain: `new mean = ${m} + (${x} − ${m})/${n + 1} = ${clean(ans)}` }; }
+    const t = R(1, 3);
+    if (t === 1) { const [a, b] = pick([[6, 3], [12, 4], [10, 15], [20, 5], [30, 20], [4, 6], [12, 6], [8, 8], [15, 10], [9, 18]]); return { text: `A does a job in ${a} h, B in ${b} h`, sub: 'hours together?', expr: `${a}*${b}/(${a}+${b})`, ans: clean(a * b / (a + b)), explain: `rates 1/${a} + 1/${b}; together ${a * b}/${a + b} = ${clean(a * b / (a + b))}` }; }
+    if (t === 2) { let x, p, y, q, ans; do { x = R(2, 9) * 5; y = R(2, 9) * 5; p = R(1, 9) * 10; q = R(1, 9) * 10; ans = (x * p + y * q) / (x + y); } while (!exact(ans, 1)); return { text: `${x} L at ${p}% mixed with ${y} L at ${q}%`, sub: 'resulting %?', expr: `(${x}*${p}+${y}*${q})/${x + y}`, ans: clean(ans), explain: `(${x}×${p} + ${y}×${q}) / ${x + y} = ${clean(ans)}` }; }
+    let ra, rb, tot, ans; do { ra = R(1, 7); rb = R(2, 9); tot = R(6, 60) * 10; ans = tot * rb / (ra + rb); } while (!exact(ans, 1) || ra === rb); return { text: `Split ${tot} in ratio ${ra}:${rb}`, sub: `size of the ${rb}-part`, expr: `${tot}*${rb}/${ra + rb}`, ans: clean(ans), explain: `${tot} ÷ ${ra + rb} = ${clean(tot / (ra + rb))}; × ${rb} = ${clean(ans)}` };
+  } });
+
+/* ---- techniques ---- */
+const near10 = m => (m === 99 || m === 101 || m === 98 || m === 102) ? 100 : (m === 999 ? 1000 : (m >= 49 && m <= 51) ? 50 : Math.round(m / 10) * 10);
+def({ id: 't_near', cat: 'Techniques', name: 'Round & adjust', imp: .5, pre: ['mul1'], maxL: 3, T: [3, 4.5, 6], names: ['×9, 11, 19, 21', '×29…51, 99, 101', '3d × near-round'], cue: 'Round & adjust',
+  desc: '47 × 39 = 47×40 − 47.',
+  gen(L) { const m = pick(L === 1 ? [9, 11, 19, 21] : L === 2 ? [29, 31, 39, 41, 49, 51, 99, 101, 98, 102] : [9, 11, 19, 21, 49, 51, 99, 101, 999]); const n = L < 3 ? R(12, 99) : R(110, 999); const r = near10(m), d = m - r;
+    const [a, b] = Math.random() < .5 ? [n, m] : [m, n]; return { text: `${a} × ${b}`, expr: `${a}*${b}`, ans: n * m, explain: `${n}×${m} = ${n}×${r} ${d < 0 ? '−' : '+'} ${n}×${Math.abs(d)} = ${n * r} ${d < 0 ? '−' : '+'} ${n * Math.abs(d)} = ${n * m}` }; } });
+def({ id: 't_x11', cat: 'Techniques', name: '× 11 and × 12–14', imp: .4, pre: ['mul1', 'add'], maxL: 3, T: [2.5, 4, 4], names: ['2d × 11', '3d × 11', '2–3d × 12, 13, 14'], cue: '×11: split and add neighbours',
+  desc: '47 × 11: write 4, (4+7), 7.',
+  gen(L) { if (L === 1) { const n = R(12, 98); return { text: `${n} × 11`, expr: `${n}*11`, ans: n * 11, explain: `${n}×11: digits ${String(n)[0]} | ${+String(n)[0] + +String(n)[1]} | ${String(n)[1]} (carry if ≥ 10) = ${n * 11}` }; }
+    if (L === 2) { const n = R(102, 998); const s = String(n); return { text: `${n} × 11`, expr: `${n}*11`, ans: n * 11, explain: `${n}×11 = ${n}×10 + ${n} = ${n * 10} + ${n} = ${n * 11}   (neighbour sums: ${s[0]}, ${+s[0] + +s[1]}, ${+s[1] + +s[2]}, ${s[2]})` }; }
+    const m = pick([12, 13, 14]), n = R(12, 499); return { text: `${n} × ${m}`, expr: `${n}*${m}`, ans: n * m, explain: `${n}×${m} = ${n}×10 + ${n}×${m - 10} = ${n * 10} + ${n * (m - 10)} = ${n * m}` }; } });
+def({ id: 't_x5', cat: 'Techniques', name: '× 5, 25, 125 and ÷ 5, 25', imp: .4, pre: ['mul1'], maxL: 3, T: [2.5, 3.5, 5], names: ['×5, ×50', '×25', '×125, ÷5, ÷25'], cue: 'halve/quarter/eighth, shift decimal',
+  desc: '48 × 25 = 4800 ÷ 4.',
+  gen(L) { if (L === 1) { const n = R(12, 499), m = pick([5, 50, 5]); return { text: `${n} × ${m}`, expr: `${n}*${m}`, ans: n * m, explain: `×5 = ÷2 then ×10: ${n} ÷ 2 = ${n / 2}; ×10 = ${n * 5}` + (m === 50 ? `; ×10 again = ${n * 50}` : '') }; }
+    if (L === 2) { const n = R(12, 499); return { text: `${n} × 25`, expr: `${n}*25`, ans: n * 25, explain: `×25 = ×100 ÷ 4: ${n * 100} ÷ 4 = ${n * 25}` }; }
+    const t = R(1, 3); const n = R(12, 499); if (t === 1) return { text: `${n} × 125`, expr: `${n}*125`, ans: n * 125, explain: `×125 = ×1000 ÷ 8: ${n * 1000} ÷ 8 = ${n * 125}` };
+    if (t === 2) return { text: `${n} ÷ 5`, expr: `${n}/5`, ans: clean(n / 5), explain: `÷5 = ×2 then ÷10: ${n * 2} ÷ 10 = ${clean(n / 5)}` };
+    return { text: `${n} ÷ 25`, expr: `${n}/25`, ans: clean(n / 25), explain: `÷25 = ×4 then ÷100: ${n * 4} ÷ 100 = ${clean(n / 25)}` }; } });
+def({ id: 't_diffsq', cat: 'Techniques', name: 'Difference of squares', imp: .5, pre: ['sq', 'sub'], maxL: 3, T: [3, 4.5, 6], names: ['around multiples of 10', 'around any m ≤ 60', 'around m ≤ 100'], cue: '(m−d)(m+d) = m² − d²',
+  desc: '47 × 53 = 50² − 3².',
+  gen(L) { let m, d; if (L === 1) { m = R(2, 9) * 10; d = R(1, 5); } else if (L === 2) { m = R(15, 60); d = R(1, 9); } else { m = R(25, 100); d = R(2, 15); }
+    if (d >= m) d = 1; const a = m - d, b = m + d; return { text: `${a} × ${b}`, expr: `${a}*${b}`, ans: a * b, explain: `${a} and ${b} straddle ${m} → ${m}² − ${d}² = ${m * m} − ${d * d} = ${a * b}` }; } });
+
+/* ---- reasoning ---- */
+function seqGen(L) {
+  const mk = (terms, rule) => ({ terms, rule });
+  const types = {
+    arith() { const a = R(1, 50), d = R(2, 13) * (Math.random() < .2 ? -1 : 1); return mk(Array.from({ length: 7 }, (_, i) => a + i * d), `add ${d} each time`); },
+    geom() { const a = R(1, 5), r = pick([2, 3]); return mk(Array.from({ length: 6 }, (_, i) => a * Math.pow(r, i)), `× ${r} each time`); },
+    quad() { const a = R(1, 20), d0 = R(1, 6), k = R(1, 4); const t = [a]; let d = d0; for (let i = 0; i < 6; i++) { t.push(t[t.length - 1] + d); d += k; } return mk(t, `differences grow by ${k} (${d0}, ${d0 + k}, ${d0 + 2 * k}…)`); },
+    sqoff() { const s = R(2, 9), c = R(-5, 12); return mk(Array.from({ length: 6 }, (_, i) => (s + i) * (s + i) + c), `n² ${c < 0 ? '−' : '+'} ${Math.abs(c)} for n = ${s}, ${s + 1}, …`); },
+    lin() { const a = R(1, 6), m = pick([2, 3]), c = R(-3, 5); const t = [a]; for (let i = 0; i < 5; i++) t.push(t[t.length - 1] * m + c); return mk(t, `× ${m} ${c < 0 ? '−' : '+'} ${Math.abs(c)} each step`); },
+    fib() { const a = R(1, 6), b = R(1, 9); const t = [a, b]; for (let i = 0; i < 5; i++) t.push(t[t.length - 1] + t[t.length - 2]); return mk(t, 'each term = sum of the previous two'); },
+    altpm() { const a = R(5, 40), p = R(3, 12), q = R(1, p - 1); const t = [a]; for (let i = 0; i < 6; i++) t.push(t[t.length - 1] + (i % 2 === 0 ? p : -q)); return mk(t, `alternately +${p} and −${q}`); },
+    inter() { const a = R(1, 20), d = R(2, 6), b = R(30, 60), e = R(2, 7) * (Math.random() < .5 ? -1 : 1); const t = []; for (let i = 0; i < 4; i++) { t.push(a + i * d); t.push(b + i * e); } t.pop(); return mk(t, `two interleaved sequences: +${d} and ${e < 0 ? '−' : '+'}${Math.abs(e)}`); },
+    tri() { const s = R(2, 8), c = R(0, 6); return mk(Array.from({ length: 6 }, (_, i) => { const n = s + i; return n * (n + 1) / 2 + c; }), `triangular numbers n(n+1)/2 ${c ? '+ ' + c : ''} from n = ${s}`); },
+    cube() { const s = R(1, 6), c = R(-4, 6); return mk(Array.from({ length: 5 }, (_, i) => Math.pow(s + i, 3) + c), `n³ ${c < 0 ? '−' : '+'} ${Math.abs(c)} for n = ${s}…`); },
+    prime() { const ps = []; for (let n = 2; ps.length < 11; n++) if (isPrime(n)) ps.push(n); const s = R(0, 4); return mk(ps.slice(s, s + 6), 'consecutive primes'); },
+    mulAdd() { const a = R(1, 5), m = pick([2, 3]), c = R(1, 5); const t = [a]; for (let i = 0; i < 5; i++) t.push(i % 2 === 0 ? t[t.length - 1] * m : t[t.length - 1] + c); return mk(t, `alternately × ${m} and + ${c}`); },
+    cyc() { const a = R(1, 10), x = R(2, 6), y = R(2, 6), z = R(2, 6); const t = [a]; const ds = [x, y, z]; for (let i = 0; i < 6; i++) t.push(t[t.length - 1] + ds[i % 3]); return mk(t, `repeating differences +${x}, +${y}, +${z}`); }
+  };
+  const byL = [['arith', 'geom'], ['quad', 'sqoff', 'lin', 'arith'], ['fib', 'altpm', 'inter', 'tri', 'lin'], ['cube', 'prime', 'mulAdd', 'cyc', 'inter']];
+  for (let tries = 0; tries < 20; tries++) { const s = types[pick(byL[L - 1])](); const shown = s.terms.slice(0, -1).slice(0, 6), next = s.terms[Math.min(s.terms.length - 1, shown.length)]; if (next !== undefined && Math.abs(next) < 1e6) return { text: shown.join(', ') + ', ?', ans: next, neg: next < 0 || shown.some(x => x < 0), explain: 'Rule: ' + s.rule + ` → next is ${M(next)}` }; }
+}
+def({ id: 'seq', cat: 'Reasoning', name: 'Number series', imp: .6, pre: ['add', 'mul'], maxL: 4, T: [6, 9, 13, 17], names: ['arithmetic, geometric', 'growing differences, n²+c, ×a+b', 'Fibonacci-like, alternating, interleaved', 'cubes, primes, mixed ops'],
+  desc: 'Find the rule, give the next term.', gen: seqGen });
+
+const PRED = [{ t: 'the sum is at least 9', f: (a, b) => a + b >= 9 }, { t: 'at least one die shows 6', f: (a, b) => a === 6 || b === 6 }, { t: 'both dice are even', f: (a, b) => a % 2 === 0 && b % 2 === 0 }, { t: 'the dice differ', f: (a, b) => a !== b }, { t: 'the first die is larger', f: (a, b) => a > b }, { t: 'the sum is even', f: (a, b) => (a + b) % 2 === 0 }, { t: 'the sum is at most 5', f: (a, b) => a + b <= 5 }, { t: 'the sum is at least 10', f: (a, b) => a + b >= 10 }];
+const choose = (n, k) => { let r = 1; for (let i = 1; i <= k; i++) r = r * (n - k + i) / i; return Math.round(r); };
+def({ id: 'ev', cat: 'Reasoning', name: 'Expected value & probability', imp: .7, pre: ['frac', 'mul1'], maxL: 4, T: [5, 8, 12, 17], names: ['EV of simple payoffs', 'dice sums, binomial mean', 'draws, variance, max/min', 'binomial, conditional, waiting times'],
+  desc: 'Probability arithmetic you can do without paper. Fractions or decimals accepted.',
+  gen(L) {
+    const done = (text, r, explain, sub) => Object.assign(ratProb(r), { text, sub, explain: explain + ` = ${r.d === 1 ? r.n : r.n + '/' + r.d}` + (r.d === 1 ? '' : ` ≈ ${(r.n / r.d).toFixed(3)}`) });
+    if (L === 1) { if (Math.random() < .5) { const fs = [{ t: 'the face value', f: x => x }, { t: 'the face squared', f: x => x * x }, { t: '$10 if you roll 5 or 6, else $0', f: x => x >= 5 ? 10 : 0 }, { t: 'twice the face minus 3', f: x => 2 * x - 3 }, { t: 'the face if even, else 0', f: x => x % 2 ? 0 : x }, { t: 'the larger of the face and 4', f: x => Math.max(x, 4) }]; const f = pick(fs); const s = [1, 2, 3, 4, 5, 6].map(f.f).reduce((a, b) => a + b, 0); return done(`Fair die, payoff = ${f.t}`, rat(s, 6), `sum of payoffs ${s} / 6`, 'expected payoff?'); }
+      const p = pick([10, 20, 25, 30, 40, 50, 60, 70, 75, 80, 90]), a = R(2, 20) * 5, b = R(1, 10) * 5; return done(`Win $${a} w.p. ${p}%, else lose $${b}`, rat(p * a - (100 - p) * b, 100), `${p}%×${a} − ${100 - p}%×${b} = (${p * a} − ${(100 - p) * b})/100`, 'expected value?'); }
+    if (L === 2) { const t = R(1, 3); if (t === 1) { const k = R(2, 12), c = 6 - Math.abs(k - 7); return done(`Two fair dice: P(sum = ${k})`, rat(c, 36), `${c} ways / 36`); } if (t === 2) { const n = R(5, 40), p = pick([10, 20, 25, 30, 40, 60, 75]); return done(`${n} flips, P(heads) = ${p}%`, rat(n * p, 100), `n·p = ${n}×${p}/100`, 'expected heads?'); } const a = R(1, 20), b = a + R(3, 30); return done(`X uniform on the integers ${a}…${b}`, rat(a + b, 2), `(${a}+${b})/2`, 'E[X]?'); }
+    if (L === 3) { const t = R(1, 4); if (t === 1) { const r = R(3, 8), bl = R(2, 8), n = r + bl; return done(`Bag: ${r} red, ${bl} blue. Draw 2 without replacement`, rat(r * (r - 1), n * (n - 1)), `${r}/${n} × ${r - 1}/${n - 1}`, 'P(both red)?'); } if (t === 2) { const n = R(2, 12); const c = pick([['of a fair die roll', 35, 12, 1], [`of the sum of ${n} fair dice`, 35 * n, 12, 1], [`of the number of heads in ${n} fair flips`, n, 4, 1]]); return done(`Variance ${c[0]}`, rat(c[1], c[2]), `variance = ${c[1]}/${c[2]}`); } return Math.random() < .5 ? done('Two fair dice', rat(161, 36), 'E[max] = 161/36', 'E[max]?') : done('Two fair dice', rat(91, 36), 'E[min] = 91/36', 'E[min]?'); }
+    const t = R(1, 4);
+    if (t === 1) { const n = R(4, 8), k = R(1, n - 1); return done(`${n} fair flips: P(exactly ${k} heads)`, rat(choose(n, k), Math.pow(2, n)), `C(${n},${k}) / 2^${n} = ${choose(n, k)}/${Math.pow(2, n)}`); }
+    if (t === 2) { let A, B, ab, b; do { A = pick(PRED); B = pick(PRED); if (A === B) continue; ab = 0; b = 0; for (let x = 1; x <= 6; x++) for (let y = 1; y <= 6; y++) { if (B.f(x, y)) { b++; if (A.f(x, y)) ab++; } } } while (A === B || !b || ab === 0 || ab === b); return done(`Two fair dice. Given ${B.t}`, rat(ab, b), `${ab} of the ${b} outcomes satisfying the condition`, `P(${A.t})?`); }
+    if (t === 3) { const k = R(1, 5); return done(`Roll a fair die until the face is ≤ ${k}`, rat(6, k), `geometric: 1/p = 6/${k}`, 'expected number of rolls?'); }
+    return done('Roll a fair die until every face has appeared', rat(147, 10), 'coupon collector: 6(1+1/2+…+1/6) = 14.7', 'expected number of rolls?');
+  } });
+
+/* ---- lessons ---- */
+const LESSONS = {
+  mul: '<b>Memorise, don’t compute.</b> The target is recall in about a second. Facts you always have to rebuild (6×7, 6×8, 7×8, 7×9, 8×9, 6×9 are typical) get rescheduled until they are instant. For 11–20, think “×10 plus ×(n−10)”.',
+  divf: 'Division facts are multiplication facts in reverse: to answer 168 ÷ 12 ask “12 × ? = 168”. Drill them separately; recognising a product as a pair of factors is its own skill.',
+  sq: '<b>Squaring toolkit.</b> Ends in 5: k(k+1) then 25 (65² → 6×7=42|25). Near 50: 2500 ± 100d + d². Near 100: 10000 − 200d + d². Otherwise go to the nearest ten: (40−3)² = 1600 − 240 + 9.',
+  pow: 'Anchor on 2¹⁰ = 1024 and double or halve from there. Cubes up to 15 and 3ⁿ up to 3⁷ come up as building blocks in larger problems.',
+  fd: '<b>Anchors:</b> 1/8 = .125, 1/16 = .0625, 1/6 = .1667, 1/9 = .111, 1/11 = .0909, 1/12 = .0833. <b>Sevenths cycle</b> 142857 (1/7=.142857, 2/7=.285714, 3/7=.428571…). Percent is the decimal ×100.',
+  prime: 'Test 2, 3, 5, 7, 11, 13 in order. Rules: 3 → digit sum; 11 → alternating digit sum; 7 → double the last digit and subtract it from the rest. You only need primes up to √N.',
+  add: '<b>Left to right, in place-value chunks.</b> 487 + 356: 487 + 300 = 787, + 50 = 837, + 6 = 843. You can start saying the leading digit sooner and there is less to hold in memory.',
+  sub: 'Chunk the same way (842 − 367: −300 → 542, −60 → 482, −7 → 475) or compensate: 842 − 367 = 842 − 400 + 33.',
+  mul1: 'Split the long number by place value and multiply each part by the digit, adding left to right: 487 × 6 = 2400 + 480 + 42. Say the running total as you go.',
+  mul2: '<b>Choose the decomposition first.</b> Within 1–2 of a round number → round &amp; adjust. Straddling a round number → difference of squares. Otherwise split one factor into tens + units and work left to right (47 × 36 = 47×30 + 47×6 = 1410 + 282). The Techniques drills build each tool separately.',
+  div: 'Estimate the size first, then build the quotient digit by digit (336 ÷ 8: 8×40 = 320, remainder 16 → 2 → 42). For ÷5, ÷25, ÷125 multiply instead (×2, ×4, ×8) and shift the decimal point.',
+  dec: 'Ignore the points, multiply as integers, then count decimal places in the factors and place the point. Estimate the size first to catch decimal-place slips (the most common error here).',
+  pct: '10% is a decimal shift. Build 5% (half), 15% (10%+5%), 1% and so on. x% of y = y% of x, so 8% of 50 = 50% of 8. Change = (new − old)/old. +p% then −p% nets −p²/100 %.',
+  frac: 'Use the larger denominator’s multiples to find a common denominator and cancel before multiplying. Results with only 2s and 5s in the denominator are exact decimals; otherwise give a fraction or 3 d.p.',
+  est: 'Round each factor to two significant digits, preferably rounding one up and the other down so errors cancel. Know your tolerance and don’t spend exact-answer time when 3% is enough.',
+  chain: 'Resolve multiplications and division first and say the interim result. Don’t try to hold the whole expression: write each stage’s answer over the stage.',
+  word: 'For means, anchor on a guess and sum the deviations. For weighted means use the distance from the nearer group (the “see-saw”). For combined rates add reciprocals.',
+  t_near: '<b>Round &amp; adjust:</b> 47 × 39 = 47 × 40 − 47 = 1880 − 47 = 1833. Works for anything within a couple of a round number (9, 11, 19, 21, 49, 51, 99, 101).',
+  t_x11: '<b>×11:</b> write the first digit, then the sum of neighbours, then the last digit; carry if a sum is ≥ 10. 47 × 11 → 4 | 11 | 7 → 517. ×12, ×13, ×14 = ×10 plus ×2, ×3, ×4.',
+  t_x5: '<b>×5</b> = halve, then ×10. <b>×25</b> = ×100 ÷ 4. <b>×125</b> = ×1000 ÷ 8. <b>÷5</b> = ×2 ÷10. <b>÷25</b> = ×4 ÷100.',
+  t_diffsq: '<b>(m−d)(m+d) = m² − d².</b> 47 × 53 sits symmetrically about 50: 2500 − 9 = 2491. You need your squares fast for this to pay off.',
+  seq: 'Check, in order: differences → second differences → ratios → alternating positions → known families (squares, cubes, triangular, Fibonacci, primes). Decide in ten seconds; if nothing fits, move on.',
+  ev: 'Keep everything as fractions over a clean denominator (36 for two dice, 2ⁿ for coin flips). Expectation is linear — split payoffs into pieces. Waiting times for probability p average 1/p.'
+};
+
+/* =====================================================================
+   persistent state
+   ===================================================================== */
+const KEY = 'qmm.v1';
+let storeOK = true;
+const defaultState = () => ({ v: 1, created: Date.now(), skills: {}, items: {}, log: [], days: {}, sessions: [], mocks: [], seenLesson: {}, settings: { profile: 'standard', auto: true, goal: 15, sessMin: 10, pace: true, theme: 'auto' } });
+function loadState() {
+  try { const raw = localStorage.getItem(KEY); if (raw) { const o = JSON.parse(raw), d = defaultState(); return Object.assign(d, o, { settings: Object.assign(d.settings, o.settings || {}) }); } } catch (e) { storeOK = false; }
+  return defaultState();
+}
+let S = loadState();
+try { localStorage.setItem('qmm.probe', '1'); localStorage.removeItem('qmm.probe'); } catch (e) { storeOK = false; }
+let saveTimer = null;
+function save() { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 400); }
+function flush() { clearTimeout(saveTimer); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { storeOK = false; } }
+window.addEventListener('beforeunload', flush);
+const PROFILE = { standard: 1, fast: .8, elite: .65 };
+const sk = id => S.skills[id] || (S.skills[id] = { level: 1, placed: false, streak: 0, bad: 0, win: [], att: 0, cor: 0, err: {}, last: 0, lvlSince: 0, pl: 0 });
+
+/* =====================================================================
+   model: targets, weakness, spaced repetition, levelling
+   ===================================================================== */
+function targetSec(id, level, ans) { return SK[id].T[level - 1] * (PROFILE[S.settings.profile] || 1) + 0.35 + 0.22 * digitsOf(ans); }
+
+function weakness(id) {
+  const s = sk(id), w = s.win.filter(e => !e.retry);
+  if (!w.length) return { wk: .5, n: 0, acc: null, spd: null };
+  let sw = 0, sa = 0, ss = 0, sc = 0;
+  w.forEach((e, i) => { const wt = Math.pow(.93, w.length - 1 - i); sw += wt; sa += wt * (e.ok ? 1 : 0); if (e.ok && e.r != null) { ss += wt * Math.min(3, e.r); sc += wt; } });
+  const acc = sa / sw, spd = sc ? ss / sc : 1.5;
+  const raw = .55 * clamp((1 - acc) / .25, 0, 1) + .45 * clamp(spd - 1, 0, 1), n = w.length;
+  return { wk: (raw * n + .5 * 3) / (n + 3), n, acc, spd };
+}
+const DEPS = {}; SKILLS.forEach(d => d.pre.forEach(p => (DEPS[p] = DEPS[p] || []).push(d.id)));
+function priority(id, sess) {
+  const d = SK[id], { wk } = weakness(id), s = sk(id);
+  let boost = 0; (DEPS[id] || []).forEach(x => { const w = weakness(x); if (w.n >= 4) boost += .5 * Math.max(0, w.wk - .25); });
+  const maint = s.last ? Math.min(.25, .04 * (now() - s.last) / DAY) : 0;
+  return d.imp * (.08 + wk + maint) * (1 + boost) / (1 + .4 * ((sess && sess[id]) || 0));
+}
+
+/* items */
+const IT_INT = [0, 10 * 60e3, DAY, 3 * DAY, 7 * DAY, 16 * DAY, 35 * DAY];
+const itemKey = (sid, key) => sid + ':' + key;
+function updItem(sid, key, ok, r) {
+  const k = itemKey(sid, key), it = S.items[k] || (S.items[k] = { box: 0, due: 0, att: 0, cor: 0, lap: 0, eT: null, last: 0, sus: 0 });
+  it.att++; it.last = now(); it.sus = 0;
+  if (ok) { it.cor++; if (r != null) it.eT = it.eT == null ? r : .6 * it.eT + .4 * r; if (r == null || r <= 1) it.box = Math.min(6, it.box + 1); else if (r > 1.8) it.box = Math.max(0, it.box - 1); }
+  else { it.lap++; it.box = 0; it.eT = it.eT == null ? 3 : .6 * it.eT + .4 * 3; }
+  it.due = it.box === 0 ? now() : now() + IT_INT[it.box] * (ok && r != null && r > 1 ? .5 : 1);
+}
+function blame(keys) {          // a composite problem was wrong: make its component facts reappear sooner
+  (keys || []).forEach(k => { const kk = itemKey('mul', k), it = S.items[kk] || (S.items[kk] = { box: 0, due: 0, att: 0, cor: 0, lap: 0, eT: null, last: 0, sus: 0 }); it.sus = Math.min(3, it.sus + .5); it.due = Math.min(it.due || Infinity, now()); });
+}
+function itemMastery(it) { if (!it || (it.att === 0 && !it.sus)) return null; if (it.att === 0) return .15; let m = it.box / 6 * .6 + (it.eT != null ? clamp(1.7 - it.eT, 0, 1) * .4 : .2); if (it.box === 0) m = Math.min(m, .2); return clamp(m, 0, 1); }
+let lastItem = {};
+function selectItem(sid, level, randomOnly) {
+  const pool = SK[sid].item.pool(level), t = now();
+  if (randomOnly) return pick(pool);
+  const due = [], fresh = [], rest = [];
+  for (const e of pool) { const it = S.items[itemKey(sid, e.key)]; if (!it) fresh.push(e); else if (it.due <= t) due.push(e); else rest.push(e); }
+  const wDue = e => { const it = S.items[itemKey(sid, e.key)]; return 1 + it.lap * .5 + (it.eT > 1.5 ? 1 : 0) + (it.box === 0 ? 2 : 0) + it.sus * 1.5 + Math.min(5, (t - it.due) / DAY * .2); };
+  let chosen;
+  const wpick = arr => { const ws = arr.map(wDue), tot = ws.reduce((a, b) => a + b, 0); let x = Math.random() * tot; for (let i = 0; i < arr.length; i++) { x -= ws[i]; if (x <= 0) return arr[i]; } return arr[arr.length - 1]; };
+  for (let tries = 0; tries < 4; tries++) {
+    if (due.length && (Math.random() < .7 || !fresh.length)) chosen = wpick(due);
+    else if (fresh.length) { const nb = fresh.filter(e => e.band === level); chosen = (nb.length && Math.random() < .7) ? pick(nb) : pick(fresh); }
+    else { const low = rest.slice().sort((a, b) => S.items[itemKey(sid, a.key)].box - S.items[itemKey(sid, b.key)].box).slice(0, Math.max(3, rest.length >> 2)); chosen = pick(low); }
+    if (chosen.key !== lastItem[sid] || pool.length < 3) break;
+  }
+  lastItem[sid] = chosen.key; return chosen;
+}
+
+/* error analysis */
+const ERR_MSG = {
+  small: 'Off by 1–2: a slip in the units step. Re-check the last partial product or sum.',
+  carry: 'Off by a multiple of 10: a carry or borrow went wrong in the tens place.',
+  hundreds: 'Off by whole hundreds: a carry or borrow into the hundreds place.',
+  decimal: 'Right digits, wrong decimal place. Estimate the magnitude before the digits.',
+  sign: 'Sign error. Decide the sign first.',
+  digit: 'One digit wrong: a single fact or partial product was misrecalled.',
+  swap: 'Digits transposed. Say the digits to yourself as you finish each one.',
+  rough: 'Outside the estimation tolerance: round more carefully (two significant digits).',
+  other: 'A bigger miss: probably a wrong method step or a misremembered fact.'
+};
+const ERR_NAME = { small: 'off by 1–2', carry: 'carry/borrow (tens)', hundreds: 'carry/borrow (hundreds)', decimal: 'decimal place', sign: 'sign', digit: 'single digit', swap: 'transposed digits', rough: 'estimate too rough', other: 'other' };
+function classify(p, v) {
+  if (v == null) return 'other'; const real = p.real !== undefined ? p.real : p.ans;
+  if (p.rtol) return 'rough';
+  if (real !== 0 && v === -real) return 'sign';
+  if (real !== 0 && v !== 0) { const ratio = Math.abs(v / real); for (const k of [10, 100, 1000, .1, .01, .001]) if (Math.abs(ratio - k) < 1e-9) return 'decimal'; }
+  const ad = Math.abs(v - real);
+  if (Number.isInteger(real) && Number.isInteger(v)) {
+    if (ad <= 2) return 'small'; if (ad % 100 === 0 && ad <= 1000) return 'hundreds'; if (ad % 10 === 0 && ad <= 90) return 'carry';
+    const a = String(Math.abs(real)), b = String(Math.abs(v));
+    if (a.length === b.length) { let diff = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) diff++; if (diff === 1) return 'digit'; if (diff === 2 && [...a].sort().join('') === [...b].sort().join('')) return 'swap'; }
+  } else if (ad <= .011) return 'small';
+  return 'other';
+}
+
+/* answer checking */
+function parseTyped(s) {
+  s = String(s).replace(/\s+/g, '').replace(/,/g, '').replace(/−/g, '-'); if (!s) return null; let m;
+  if ((m = /^(-?\d+)\/(\d+)$/.exec(s))) { const d = +m[2]; if (!d) return null; return { v: +m[1] / d, frac: true }; }
+  if (/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return { v: parseFloat(s), frac: false };
+  return null;
+}
+function checkAns(p, s) {
+  const t = parseTyped(s); if (!t) return { ok: false, auto: false, v: null, parsed: false };
+  const real = p.real !== undefined ? p.real : p.ans; let ok, auto;
+  if (p.rtol) { ok = Math.abs(t.v - real) <= p.rtol * Math.abs(real); auto = false; }
+  else if (t.frac) { ok = Math.abs(t.v - real) <= 1e-9 * Math.max(1, Math.abs(real)); auto = ok; }
+  else { ok = Math.abs(t.v - real) <= (p.atol || 1e-9); auto = Math.abs(t.v - p.ans) <= 1e-9; }
+  return { ok, auto: ok && auto, v: t.v, parsed: true };
+}
+function showAns(p) { if (p.rtol) return '≈ ' + p.ans; return M(p.ans) + (p.simp && p.simp !== String(p.ans) ? `  (= ${p.simp})` : ''); }
+
+/* level logic */
+function afterAnswer(p, ok, r) {
+  const s = sk(p.skill), d = SK[p.skill];
+  s.att++; if (ok) s.cor++; s.last = now();
+  if (p.retry) return;
+  s.win.push({ ok, r: ok ? r : null, lvl: p.level, ts: now(), review: !!p.review, mock: !!p.mock }); if (s.win.length > 30) s.win.shift();
+  if (p.mock || p.review || p.level !== s.level) return;
+  const good = ok && (r == null || r <= 1.2);
+  if (!s.placed) {
+    s.pl = (s.pl || 0) + 1;
+    if (good) { s.streak++; if (s.streak >= 3) { if (s.level < d.maxL) { s.level++; s.lvlSince = now(); } else s.placed = true; s.streak = 0; s.bad = 0; } }
+    else { s.streak = 0; s.bad = (s.bad || 0) + 1; if (s.bad >= 2) { s.placed = true; s.bad = 0; } }
+    if (s.pl >= 16) s.placed = true;
+    return;
+  }
+  const cur = s.win.filter(e => e.ts >= s.lvlSince && e.lvl === s.level && !e.review && !e.mock).slice(-12);
+  if (cur.length >= 10) {
+    const acc = cur.filter(e => e.ok).length / cur.length, med = median(cur.filter(e => e.ok && e.r != null).map(e => e.r));
+    if (acc >= .85 && med != null && med <= 1 && s.level < d.maxL) { s.level++; s.lvlSince = now(); }
+    else if (acc < .55 && s.level > 1) { s.level--; s.lvlSince = now(); }
+  }
+}
+
+/* =====================================================================
+   problem factory & planner
+   ===================================================================== */
+function makeProblem(id, level, opt = {}) {
+  const d = SK[id]; level = clamp(level, 1, d.maxL); let p, key;
+  if (d.item) { const e = selectItem(id, level, opt.random); key = e.key; p = d.item.make(key, level); p.key = key; }
+  else p = d.gen(level);
+  p.skill = id; p.level = level; p.tgt = targetSec(id, level, p.real !== undefined ? Math.abs(p.ans) : p.ans);
+  p.kind = (Number.isInteger(p.ans) && !p.neg && !p.frac && !p.atol && p.ans >= 0) ? 'numeric' : (p.frac || p.neg || p.ans < 0) ? 'text' : 'decimal';
+  return p;
+}
+function pickSkill(run) {
+  let cands = SKILLS.map(d => d.id);
+  if (run.cfg.only === 'facts') cands = cands.filter(id => SK[id].item);
+  if (run.cfg.only === 'weak') { const ranked = cands.map(id => [id, priority(id, run.sess)]).sort((a, b) => b[1] - a[1]).slice(0, 4).map(x => x[0]); cands = ranked; }
+  const alt = cands.filter(id => id !== run.lastSkill); if (alt.length) cands = alt;
+  const ws = cands.map(id => priority(id, run.sess)), tot = ws.reduce((a, b) => a + b, 0); let x = Math.random() * tot;
+  for (let i = 0; i < cands.length; i++) { x -= ws[i]; if (x <= 0) return cands[i]; } return cands[cands.length - 1];
+}
+
+/* ---- mock tests ---- */
+const CORE = ['add', 'sub', 'mul1', 'mul2', 'div', 'dec', 'pct', 'frac', 'chain'];
+const MOCKS = [
+  { id: 'ref', name: 'Numeracy sprint · reference', n: 80, min: 8, desc: 'Mixed + − × ÷, decimals, percentages, fractions at a fixed reference difficulty, so scores are comparable between attempts.', mix: [['add', 3, 1], ['sub', 3, 1], ['mul1', 2, 1], ['mul2', 2, 1.5], ['div', 2, 1], ['dec', 2, 1], ['pct', 2, 1], ['frac', 2, 1], ['chain', 2, .5]] },
+  { id: 'hard', name: 'Numeracy sprint · hard', n: 80, min: 8, desc: 'The same mix one notch harder: what an elite score looks like.', mix: [['add', 4, 1], ['sub', 4, 1], ['mul1', 3, 1], ['mul2', 3, 1.5], ['div', 3, 1], ['dec', 3, 1], ['pct', 3, 1], ['frac', 3, 1], ['chain', 3, .5]] },
+  { id: 'half', name: 'Half sprint', n: 40, min: 4, desc: 'Half the length, same reference mix. Good for daily tracking.', mix: null, base: 'ref' },
+  { id: 'mine', name: 'Adaptive · at my levels', n: 50, min: 6, desc: 'Questions at the level you are currently practising in each core skill.', mix: 'mine' },
+  { id: 'facts', name: 'Fact blitz', n: 60, min: 3, desc: 'Times tables, squares, divisions and fraction–decimal conversions: pure recall speed.', mix: [['mul', 3, 3], ['divf', 3, 2], ['sq', 2, 2], ['fd', 2, 1.5]] },
+  { id: 'reason', name: 'Series & probability', n: 20, min: 12, desc: 'Number series and expected-value questions at a moderate level.', mix: [['seq', 2, 1], ['seq', 3, 1], ['ev', 2, 1], ['ev', 3, 1]] }
+];
+function buildMock(m, n) {
+  let mix = m.mix; if (m.base) mix = MOCKS.find(x => x.id === m.base).mix;
+  if (mix === 'mine') mix = CORE.map(id => [id, sk(id).level, 1]);
+  const tw = mix.reduce((a, x) => a + x[2], 0); let counts = mix.map(x => Math.floor(n * x[2] / tw)), left = n - counts.reduce((a, b) => a + b, 0);
+  for (let i = 0; left > 0; i = (i + 1) % mix.length, left--) counts[i]++;
+  const list = []; mix.forEach((x, i) => { for (let k = 0; k < counts[i]; k++) { const p = makeProblem(x[0], Math.min(x[1], SK[x[0]].maxL), { random: true }); p.mock = true; list.push(p); } });
+  return shuffle(list);
+}
+
+/* =====================================================================
+   session engine
+   ===================================================================== */
+let Run = null, tickTimer = null;
+const CORE_PLACE = ['mul', 'divf', 'sq', 'add', 'sub', 'mul1', 'mul2', 'div', 'dec', 'pct', 'frac', 'fd'];
+
+function startRun(cfg) {
+  Run = { cfg, mode: cfg.mode, startT: performance.now(), pausedTotal: 0, pauseStart: null, durMs: (cfg.min || 0) * 60000, n: 0, ok: 0, queue: [], results: [], lastSkill: null, sess: {}, lvStart: {}, p: null, state: 'idle', hidden: false, over: false, problems: null, pl: null, activeMs: 0 };
+  SKILLS.forEach(d => Run.lvStart[d.id] = sk(d.id).level);
+  if (cfg.mode === 'mock') Run.problems = buildMock(cfg.mock, cfg.n);
+  if (cfg.mode === 'placement') {
+    const list = cfg.skills.filter(id => { const s = sk(id); if (cfg.restart || !s.placed) return true; return false; });
+    if (!list.length) { alert('All selected skills are already placed. Tick “restart” to re-measure them.'); Run = null; return; }
+    if (cfg.restart) list.forEach(id => { const s = sk(id); s.level = 1; s.placed = false; s.streak = 0; s.bad = 0; s.pl = 0; s.lvlSince = now(); });
+    Run.pl = { list, i: 0, cnt: {} };
+  }
+  document.body.classList.add('running'); showView('run'); buildRunDOM(); clearInterval(tickTimer); tickTimer = setInterval(tick, 100); advance();
+}
+const elapsedMs = () => performance.now() - Run.startT - Run.pausedTotal - (Run.pauseStart != null ? performance.now() - Run.pauseStart : 0);
+
+function nextProblem() {
+  const r = Run;
+  const qi = r.queue.findIndex(x => x.after <= r.n);
+  if (qi >= 0) { const x = r.queue.splice(qi, 1)[0]; return Object.assign({}, x.p, { retry: true }); }
+  if (r.mode === 'mock') return r.problems[r.n] || null;
+  let id;
+  if (r.mode === 'placement') { if (r.pl.i >= r.pl.list.length) return null; id = r.pl.list[r.pl.i]; }
+  else if (r.mode === 'skill') id = r.cfg.skill;
+  else id = pickSkill(r);
+  const s = sk(id); let level = s.level, review = false;
+  if (r.mode !== 'placement' && s.placed && level > 1 && Math.random() < .15) { level = R(1, level - 1); review = true; }
+  r.lastSkill = id; r.sess[id] = (r.sess[id] || 0) + 1;
+  const p = makeProblem(id, level); p.review = review; return p;
+}
+function advance() {
+  if (!Run) return;
+  if (Run.mode !== 'mock' && Run.durMs && elapsedMs() >= Run.durMs) return finish();
+  if (Run.mode === 'mock' && (Run.n >= Run.problems.length || elapsedMs() >= Run.durMs)) return finish();
+  const p = nextProblem(); if (!p) return finish();
+  if (Run.mode !== 'mock' && Run.mode !== 'placement' && !p.retry && LESSONS[p.skill] && !S.seenLesson[p.skill]) return showLesson(p);
+  present(p);
+}
+function present(p) {
+  Run.p = p; Run.state = 'ask'; Run.hidden = document.hidden;
+  const d = SK[p.skill], s = sk(p.skill);
+  const isMock = Run.mode === 'mock';
+  $('#qTag').innerHTML = isMock ? '' : `<span class="tag">${esc(d.name)} · L${p.level}</span>` + (p.cue && s.att < 25 ? ` <span class="tag warn">${esc(p.cue)}</span>` : '') + (p.retry ? ' <span class="tag warn">retry</span>' : '');
+  $('#qText').innerHTML = p.html || esc(p.text);
+  $('#qSub').textContent = p.sub || '';
+  const inp = $('#ans'); inp.style.display = ''; inp.disabled = false; inp.value = ''; inp.inputMode = p.kind; inp.focus();
+  $('#fbReveal').innerHTML = ''; $('#paceWrap').style.display = (S.settings.pace && !isMock) ? '' : 'none';
+  Run.qStart = performance.now();
+}
+function tick() {
+  if (!Run || Run.pauseStart != null) return;
+  const el = elapsedMs(), isMock = Run.mode === 'mock';
+  if (Run.durMs) { $('#hudTime').textContent = fmtClock(Run.durMs - el); } else $('#hudTime').textContent = fmtClock(el) + ' elapsed';
+  if (Run.state === 'ask' && Run.p && !isMock && S.settings.pace) {
+    const t = (performance.now() - Run.qStart) / 1000, lim = Run.p.tgt * 2, f = clamp(1 - t / lim, 0, 1), bar = $('#paceBar');
+    bar.style.width = (f * 100) + '%'; bar.className = t > Run.p.tgt ? 'late' : '';
+  }
+  if (Run.durMs && el >= Run.durMs && (isMock || Run.state === 'ask')) finish();
+  else if (Run.durMs && el >= Run.durMs && Run.state === 'reveal') Run.over = true;
+}
+function skipQ() { if (!Run || Run.mode !== 'mock' || Run.state !== 'ask') return; Run.results.push({ p: Run.p, ok: false, skipped: true, r: null, t: (performance.now() - Run.qStart) / 1000 }); Run.n++; advance(); }
+function submit(txt) {
+  if (!Run || Run.state !== 'ask' || Run.pauseStart != null) return;
+  const t = (performance.now() - Run.qStart) / 1000, p = Run.p, c = checkAns(p, txt);
+  if (!c.parsed) { if (txt.trim() === '') return; $('#ans').classList.add('shake'); return; }
+  const r = Run.hidden ? null : t / p.tgt;
+  record(p, c.ok, r, t, c);
+  if (Run.mode === 'mock') { Run.n++; advance(); return; }
+  if (c.ok) {
+    const slow = r != null && r > 1.8;
+    $('#fb').innerHTML = `<span class="ok">✓</span> ${esc(p.text)} = <b>${esc(showAns(p))}</b> · ${fmtSec(t)} <span class="muted">(target ${fmtSec(p.tgt)})</span>` + (slow ? `<div class="exp small" style="margin-top:4px">${esc(p.explain)}</div>` : '');
+    if (r != null && r > 2.5 && !p.retry) Run.queue.push({ p: clone(p), after: Run.n + 3 + R(0, 2) });
+    Run.n++; advance();
+  } else reveal(p, txt, c);
+}
+const clone = p => JSON.parse(JSON.stringify(p));
+function record(p, ok, r, t, c) {
+  const rec = { p, ok, r, t, v: c.v, err: null }; Run.results.push(rec); if (ok) Run.ok++;
+  const s = sk(p.skill);
+  if (!ok) { rec.err = classify(p, c.v); s.err[rec.err] = (s.err[rec.err] || 0) + 1; if (!p.retry && p.facts) blame(p.facts); }
+  afterAnswer(p, ok, r);
+  if (p.key !== undefined) updItem(p.skill, p.key, ok, r);
+  S.log.push({ t: now(), s: p.skill, l: p.level, k: p.key, o: ok ? 1 : 0, ms: Math.round(t * 1000), r: r == null ? null : +r.toFixed(2), m: Run.mode }); if (S.log.length > 2500) S.log.splice(0, S.log.length - 2500);
+  const dk = dayKey(), day = S.days[dk] || (S.days[dk] = { n: 0, ok: 0, rs: 0, rn: 0, ms: 0 });
+  day.n++; if (ok) day.ok++; if (ok && r != null) { day.rs += Math.min(4, r); day.rn++; } day.ms += Math.round(Math.min(t, 60) * 1000);
+  if (Run.mode === 'placement') { const pl = Run.pl; pl.cnt[p.skill] = (pl.cnt[p.skill] || 0) + 1; if (!p.retry && (s.placed || pl.cnt[p.skill] >= 16)) { s.placed = true; pl.i++; } }
+  save();
+}
+function reveal(p, txt, c) {
+  Run.state = 'reveal'; Run.revealAt = performance.now();
+  const err = Run.results[Run.results.length - 1].err;
+  $('#ans').style.display = 'none'; $('#paceWrap').style.display = 'none'; $('#fb').innerHTML = '';
+  $('#fbReveal').innerHTML = `<div class="reveal"><div class="big"><span class="no">✗</span> ${esc(p.text)} = <b>${esc(showAns(p))}</b></div>
+    <div class="muted">You answered ${esc(M(txt))}${p.retry ? ' (on retry)' : ''}.</div>
+    <div style="margin:8px 0">${esc(ERR_MSG[err] || '')}</div><div class="exp">${esc(p.explain)}</div>
+    <div class="muted small" style="margin-top:10px">Press Enter to continue — this one will come back in a few questions.</div></div>`;
+  if (!p.retry) Run.queue.push({ p: clone(p), after: Run.n + 3 + R(0, 2) });
+}
+function continueAfterReveal() {
+  if (Run.state !== 'reveal' || performance.now() - Run.revealAt < 450) return;
+  Run.n++; if (Run.over) return finish(); advance();
+}
+function showLesson(p) {
+  Run.state = 'lesson'; Run.pendingP = p; Run.pauseStart = performance.now();
+  const d = SK[p.skill];
+  $('#qTag').innerHTML = '<span class="tag warn">New skill</span>'; $('#qText').innerHTML = ''; $('#qSub').textContent = ''; $('#ans').style.display = 'none'; $('#paceWrap').style.display = 'none'; $('#fb').innerHTML = '';
+  $('#fbReveal').innerHTML = `<div class="overlay"><h3>${esc(d.name)}</h3><div class="lesson">${LESSONS[p.skill]}</div><div class="muted small">The clock is stopped. Press Enter to begin.</div></div>`;
+}
+function resumeFromPause() {
+  if (Run.pauseStart == null) return; const dt = performance.now() - Run.pauseStart; Run.pausedTotal += dt; Run.pauseStart = null; if (Run.qStart) Run.qStart += dt;
+}
+function togglePause() {
+  if (!Run) return;
+  if (Run.mode === 'mock') { if (Run.state === 'ask' && confirm('Abort this test? Your answers so far will be scored.')) finish(); return; }
+  if (Run.state === 'lesson') return;
+  if (Run.pauseStart != null && Run.state === 'paused') { resumeFromPause(); Run.state = Run.prevState; $('#pauseBox').style.display = 'none'; if (Run.state === 'ask') $('#ans').focus(); return; }
+  if (Run.state === 'ask' || Run.state === 'reveal') { Run.prevState = Run.state; Run.state = 'paused'; Run.pauseStart = performance.now(); $('#pauseBox').style.display = ''; }
+}
+document.addEventListener('visibilitychange', () => { if (Run && document.hidden) { Run.hidden = true; if (Run.mode !== 'mock' && (Run.state === 'ask' || Run.state === 'reveal')) togglePause(); } });
+
+function buildRunDOM() {
+  const m = Run.mode === 'mock';
+  $('#v-run').innerHTML = `<div id="run">
+  <div class="hud"><span id="hudTime" class="mono"></span><span id="hudN"></span><span><button class="btn sm" id="btnPause">${m ? 'Abort' : 'Pause'} (Esc)</button> ${m ? '<button class="btn sm" id="btnSkip">Skip (Tab)</button>' : '<button class="btn sm" id="btnEnd">End session</button>'}</span></div>
+  <div class="qtag" id="qTag"></div><div class="problem" id="qText"></div><div class="psub" id="qSub"></div>
+  <input id="ans" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="numeric" aria-label="answer">
+  <div class="pace" id="paceWrap"><i id="paceBar" style="width:100%"></i><b></b></div>
+  <div class="fb" id="fb"></div><div id="fbReveal"></div>
+  <div class="overlay" id="pauseBox" style="display:none;text-align:center"><h3>Paused</h3><p class="muted">The clock is stopped.</p><button class="btn primary" id="btnResume">Resume (Esc)</button></div></div>`;
+  const inp = $('#ans');
+  inp.addEventListener('input', () => {
+    const v = inp.value.replace(/[^0-9.\-\/−]/g, ''); if (v !== inp.value) inp.value = v;
+    if (Run && Run.state === 'ask' && S.settings.auto && Run.mode !== 'mock' && v) { const c = checkAns(Run.p, v); if (c.auto) submit(v); }
+  });
+  $('#btnPause').onclick = togglePause; $('#btnResume').onclick = togglePause;
+  if (m) $('#btnSkip').onclick = skipQ; else $('#btnEnd').onclick = () => { if (Run.results.length === 0 || confirm('End this session now?')) finish(); };
+  updHud();
+}
+function updHud() { if (!Run) return; const n = Run.results.filter(r => !r.p.retry).length; const total = Run.mode === 'mock' ? Run.problems.length : null; $('#hudN').textContent = (total ? `Q ${Math.min(Run.n + 1, total)}/${total}` : `${Run.n} answered`) + (Run.mode === 'placement' && Run.pl ? ` · skill ${Math.min(Run.pl.i + 1, Run.pl.list.length)}/${Run.pl.list.length}` : '') + (Run.mode === 'mock' ? '' : ` · ${Run.results.length ? Math.round(100 * Run.ok / Run.results.length) : 100}%`); }
+setInterval(() => { if (Run && $('#hudN')) updHud(); }, 400);
+document.addEventListener('keydown', e => {
+  if (!Run) return;
+  if (e.key === 'Escape') { e.preventDefault(); togglePause(); return; }
+  if (Run.state === 'lesson' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); S.seenLesson[Run.pendingP.skill] = 1; save(); resumeFromPause(); $('#fbReveal').innerHTML = ''; present(Run.pendingP); return; }
+  if (Run.state === 'reveal' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); continueAfterReveal(); return; }
+  if (Run.state === 'ask') {
+    if (e.key === 'Tab' && Run.mode === 'mock') { e.preventDefault(); skipQ(); return; }
+    if (e.key === 'Enter') { e.preventDefault(); submit($('#ans').value); return; }
+    if (document.activeElement !== $('#ans') && e.key.length === 1 && !e.ctrlKey && !e.metaKey) $('#ans').focus();
+  }
+});
+
+/* ---- session end ---- */
+function finish() {
+  if (!Run) return; const r = Run; clearInterval(tickTimer); Run = null; document.body.classList.remove('running');
+  const results = r.results, n = results.length, ok = results.filter(x => x.ok).length, el = Math.min(r.durMs || Infinity, (performance.now() - r.startT - r.pausedTotal));
+  const rs = results.filter(x => x.ok && x.r != null).map(x => x.r), avgR = rs.length ? rs.reduce((a, b) => a + b, 0) / rs.length : null;
+  const rec = { t: now(), mode: r.mode, ms: Math.round(el), n, ok, avgR: avgR == null ? null : +avgR.toFixed(2), name: r.cfg.mock ? r.cfg.mock.id : undefined };
+  if (r.mode !== 'mock' && n) { S.sessions.push(rec); if (S.sessions.length > 80) S.sessions.shift(); }
+  let mockRec = null;
+  if (r.mode === 'mock') { const wrong = results.filter(x => !x.ok && !x.skipped).length; mockRec = { t: now(), id: r.cfg.mock.id, name: r.cfg.mock.name, n: r.problems.length, min: r.cfg.min, answered: results.length, correct: ok, wrong, ms: Math.round(el) }; S.mocks.push(mockRec); if (S.mocks.length > 60) S.mocks.shift(); }
+  const dk = dayKey(); if (n) { const dd = S.days[dk] || (S.days[dk] = { n: 0, ok: 0, rs: 0, rn: 0, ms: 0 }); dd.idx = fluencyIndex(); }
+  flush(); renderSummary(r, rec, mockRec); showView('run');
+}
+function renderSummary(r, rec, mockRec) {
+  const results = r.results, n = results.length, ok = results.filter(x => x.ok).length;
+  const by = {}; results.forEach(x => { const b = by[x.p.skill] || (by[x.p.skill] = { n: 0, ok: 0, rs: [], t: [] }); b.n++; if (x.ok) b.ok++; if (x.ok && x.r != null) b.rs.push(x.r); b.t.push(x.t); });
+  const rows = Object.keys(by).map(id => { const b = by[id], d = SK[id], m = median(b.rs); const lv = sk(id).level, was = r.lvStart[id]; return `<tr><td>${esc(d.name)}</td><td>${b.ok}/${b.n}</td><td>${fmtSec(b.t.reduce((a, c) => a + c, 0) / b.t.length)}</td><td>${m == null ? '–' : (m <= 1 ? '<span style="color:var(--good)">on target</span>' : m.toFixed(1) + '× target')}</td><td>${lv !== was ? (lv > was ? '▲' : '▼') + ` L${was}→L${lv}` : `L${lv}`}</td></tr>`; }).join('');
+  const rs = results.filter(x => x.ok && x.r != null).map(x => x.r), avgR = rs.length ? rs.reduce((a, b) => a + b, 0) / rs.length : null;
+  const acc = n ? ok / n : 0; let coach;
+  if (!n) coach = 'No answers recorded.';
+  else if (acc < .75) coach = 'Accuracy dipped below 75%: you are going faster than your current skill supports. Slow down until errors become rare — wrong answers cost more than seconds on a test, and rushed practice builds the wrong habits.';
+  else if (acc >= .93 && avgR != null && avgR > 1.3) coach = 'Accurate but slower than target. That is exactly the gap this tool is built to close: keep sessions short, keep the pace bar on, and trust the repetition.';
+  else if (acc >= .9 && avgR != null && avgR <= 1) coach = 'Accurate and at pace. Levels will rise automatically; consider switching your profile to Fast in Settings.';
+  else coach = 'Good balance of speed and accuracy. Come back tomorrow: spaced repetition works better in short daily doses than in one long session.';
+  const dayMin = (S.days[dayKey()] ? S.days[dayKey()].ms : 0) / 60000; if (dayMin > 35) coach += ' You have practised over 35 minutes today; returns are diminishing — sleep consolidates this kind of skill.';
+  const errs = {}; results.forEach(x => { if (x.err) errs[x.err] = (errs[x.err] || 0) + 1; }); const errTxt = Object.entries(errs).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${ERR_NAME[k]} ×${v}`).join(', ');
+  const missed = results.filter(x => !x.ok);
+  let head = '';
+  if (mockRec) {
+    const sc = mockRec.correct, pen = sc - mockRec.wrong / 4; const prev = S.mocks.filter(m => m.id === mockRec.id && m !== mockRec).slice(-1)[0];
+    head = `<h1>Test complete · ${esc(mockRec.name)}</h1><div class="card kpi"><div><b>${sc}</b><span>correct of ${mockRec.n}</span></div><div><b>${mockRec.wrong}</b><span>wrong</span></div><div><b>${mockRec.n - mockRec.answered + results.filter(x => x.skipped).length}</b><span>blank</span></div><div><b>${pen.toFixed(1)}</b><span>score if wrong = −¼</span></div><div><b>${(mockRec.ms / 1000 / Math.max(1, mockRec.answered)).toFixed(1)}s</b><span>per answered question</span></div>${prev ? `<div><b>${sc - prev.correct >= 0 ? '+' : ''}${sc - prev.correct}</b><span>vs last attempt</span></div>` : ''}</div>`;
+  } else head = `<h1>Session complete</h1><div class="card kpi"><div><b>${n}</b><span>answered</span></div><div><b>${Math.round(acc * 100)}%</b><span>accuracy</span></div><div><b>${avgR == null ? '–' : avgR.toFixed(2) + '×'}</b><span>time vs target (≤ 1 is on pace)</span></div><div><b>${fmtClock((rec.ms))}</b><span>time</span></div></div>`;
+  $('#v-run').innerHTML = `<div style="max-width:820px;margin:0 auto">${head}
+  <div class="card"><h3>Coach</h3><p>${esc(coach)}</p>${errTxt ? `<p class="muted small">Error types this session: ${esc(errTxt)}</p>` : ''}</div>
+  ${rows ? `<div class="card"><h3>By skill</h3><table><tr><th>Skill</th><th>Right</th><th>Avg time</th><th>Pace</th><th>Level</th></tr>${rows}</table></div>` : ''}
+  ${missed.length ? `<div class="card"><h3>Misses (${missed.length})</h3>${missed.slice(0, 25).map(x => `<details><summary>${esc(x.p.text)} ${x.p.sub ? '<span class="muted">(' + esc(x.p.sub) + ')</span>' : ''} = ${esc(showAns(x.p))} <span class="muted">— ${x.skipped ? 'skipped' : 'you: ' + esc(M(x.v))}</span></summary><div class="exp">${esc(x.p.explain)}</div></details>`).join('')}</div>` : ''}
+  <div class="row"><button class="btn primary" data-act="smart:${S.settings.sessMin}">Another ${S.settings.sessMin}-min session</button><button class="btn" data-act="go:home">Home</button><button class="btn" data-act="go:insights">Insights</button></div></div>`;
+}
+
+/* =====================================================================
+   analysis for the UI
+   ===================================================================== */
+function fluencyIndex() { let a = 0, b = 0; SKILLS.forEach(d => { const w = weakness(d.id); if (w.n >= 3) { a += d.imp * (1 - w.wk); b += d.imp; } }); return b ? Math.round(100 * a / b) : null; }
+function weakItems(id, k = 6) {
+  const out = []; for (const key in S.items) { if (!key.startsWith(id + ':')) continue; const it = S.items[key]; if (it.att < 1) continue; const score = it.lap + Math.max(0, (it.eT || 1) - 1) * 1.5 + (it.box === 0 ? 1 : 0); if (score >= .8) out.push({ key: key.slice(id.length + 1), it, score }); }
+  return out.sort((a, b) => b.score - a.score).slice(0, k);
+}
+function fmtKey(id, key) { if (id === 'mul' || id === 'divf') return key.replace('x', '×'); if (id === 'sq') return key + '²'; return key; }
+function diagnose() {
+  return SKILLS.map(d => {
+    const w = weakness(d.id), s = sk(d.id), blockers = d.pre.map(p => ({ id: p, ...weakness(p) })).filter(b => b.n >= 4 && b.wk > .3 && b.id !== d.id).sort((a, b) => b.wk - a.wk);
+    const tot = Object.values(s.err).reduce((a, b) => a + b, 0), top = Object.entries(s.err).sort((a, b) => b[1] - a[1])[0];
+    let verdict = 'Not enough data yet';
+    if (w.n >= 4) { const accBad = w.acc < .85, slow = w.spd > 1.25; verdict = accBad && slow ? 'accuracy and speed' : accBad ? 'accuracy: slow down slightly and check carries' : slow ? 'speed: answers are right but not automatic yet' : 'on target'; }
+    return { d, w, s, blockers, verdict, topErr: top && tot >= 4 && top[1] / tot >= .3 ? top[0] : null, score: w.n >= 4 ? w.wk * d.imp : -1 };
+  });
+}
+function getStreak() { let n = 0, t = now(); const min = 3 * 60000; if (!((S.days[dayKey(t)] || {}).ms >= min)) t -= DAY; while ((S.days[dayKey(t)] || {}).ms >= min) { n++; t -= DAY; } return n; }
+const mix2 = (m) => { const a = [240, 165, 58], b = [90, 169, 255]; return `rgb(${a.map((x, i) => Math.round(x + (b[i] - x) * m)).join(',')})`; };
+
+/* =====================================================================
+   views
+   ===================================================================== */
+const VIEWS = ['home', 'train', 'learn', 'mock', 'insights', 'settings', 'run'];
+let curView = 'home';
+function showView(v) {
+  curView = v; VIEWS.forEach(x => $('#v-' + x).classList.toggle('on', x === v));
+  $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  ({ home: renderHome, train: renderTrain, learn: renderLearn, mock: renderMock, insights: renderInsights, settings: renderSettings, run: () => { } })[v]();
+  window.scrollTo(0, 0);
+}
+function tileHTML(d) {
+  const w = weakness(d.id), s = sk(d.id), has = w.n >= 3;
+  return `<button class="tile" data-act="skill:${d.id}"><div class="nm">${esc(d.name)}</div><div class="lv">L${s.level}/${d.maxL} · ${esc(d.names[s.level - 1] || '')}${!s.placed ? ' · unplaced' : ''}</div><div class="meter"><i style="width:${has ? Math.round(100 * (1 - w.wk)) : 0}%;background:${has ? mix2(1 - w.wk) : 'var(--line)'}"></i></div></button>`;
+}
+function renderHome() {
+  const idx = fluencyIndex(), today = S.days[dayKey()] || { ms: 0, n: 0 }, streak = getStreak(), placedN = SKILLS.filter(d => sk(d.id).placed).length, goal = S.settings.goal;
+  const diag = diagnose().filter(x => x.score >= 0).sort((a, b) => b.score - a.score).slice(0, 5);
+  const cats = ['Facts', 'Arithmetic', 'Techniques', 'Reasoning'];
+  const focus = diag.length ? diag.map(x => `<tr><td><b>${esc(x.d.name)}</b></td><td>${esc(x.verdict)}</td><td class="muted small">${x.blockers.length ? 'held back by ' + x.blockers.slice(0, 2).map(b => esc(SK[b.id].name)).join(', ') : ''}</td></tr>`).join('') : '';
+  $('#v-home').innerHTML = `<h1>Mental math for quant numeracy tests</h1>
+  <div class="card"><div class="kpi"><div><b>${idx == null ? '–' : idx}</b><span>fluency index (0–100)</span></div><div><b>${streak}</b><span>day streak (≥ 3 min/day)</span></div><div><b>${Math.round(today.ms / 60000)}/${goal}</b><span>minutes today</span></div><div><b>${today.n || 0}</b><span>questions today</span></div></div>
+  <div class="row" style="margin-top:14px">${placedN < 6 ? `<button class="btn primary" data-act="place">Start here: ~8-min placement</button>` : ''}<button class="btn ${placedN < 6 ? '' : 'primary'}" data-act="smart:${S.settings.sessMin}">Smart session · ${S.settings.sessMin} min</button><button class="btn" data-act="smart:5">5 min</button><button class="btn" data-act="smart:15">15 min</button><button class="btn" data-act="weak:5">Weak-spot blitz · 5 min</button></div>
+  ${placedN < 6 ? '<p class="muted small" style="margin:10px 0 0">Placement finds where each skill currently stands by climbing difficulty until you stumble. After that the trainer concentrates on what you are slowest or least accurate at, and on the prerequisite skills behind them.</p>' : ''}</div>
+  ${focus ? `<div class="card"><h3>What the trainer is targeting</h3><table>${focus}</table><p class="small"><a href="#" data-act="go:insights">Full diagnosis →</a></p></div>` : ''}
+  <h2>Skill map</h2><div class="muted small" style="margin-bottom:8px">Bar = fluency (accuracy and speed vs. test pace). Click a tile for a 5-minute drill.</div>
+  ${cats.map(c => `<div class="muted small" style="margin:10px 0 4px">${c}</div><div class="grid">${SKILLS.filter(d => d.cat === c).map(tileHTML).join('')}</div>`).join('')}`;
+}
+function renderTrain() {
+  const sm = S.settings.sessMin;
+  $('#v-train').innerHTML = `<h1>Train</h1>
+  <div class="grid2">
+  <div class="card"><h3>Smart session</h3><p class="muted small">Interleaves the skills you are weakest at (and their prerequisites), mixes in review of earlier levels, brings due facts back on a spaced schedule and re-asks misses a few questions later.</p><div class="row">${[5, 10, 15, 25].map(m => `<button class="btn ${m === sm ? 'primary' : ''}" data-act="smart:${m}">${m} min</button>`).join('')}</div></div>
+  <div class="card"><h3>Weak-spot blitz</h3><p class="muted small">Only your four highest-priority skills. Intense: use after you have a couple of days of data.</p><div class="row"><button class="btn" data-act="weak:3">3 min</button><button class="btn" data-act="weak:5">5 min</button></div></div>
+  <div class="card"><h3>Facts review</h3><p class="muted small">Only the memorised-fact skills (times tables, divisions, squares, powers, fractions↔decimals), driven by the spaced-repetition schedule.</p><div class="row"><button class="btn" data-act="facts:5">5 min</button><button class="btn" data-act="facts:10">10 min</button></div></div>
+  <div class="card"><h3>Placement</h3><p class="muted small">Climb each skill's difficulty ladder until you stumble. Run once at the start (and re-run occasionally).</p>
+    <div class="chips" id="plChips" style="margin-bottom:8px">${CORE_PLACE.map(id => `<label class="small"><input type="checkbox" value="${id}" checked> ${esc(SK[id].name)}</label>`).join('')}</div>
+    <label class="small"><input type="checkbox" id="plRestart"> restart skills that are already placed</label><div class="row" style="margin-top:8px"><button class="btn primary" data-act="placeSel">Start placement</button></div></div>
+  <div class="card"><h3>Single skill</h3><div class="row"><select id="skSel">${SKILLS.map(d => `<option value="${d.id}">${esc(d.cat)} · ${esc(d.name)}</option>`).join('')}</select><select id="skMin"><option>3</option><option selected>5</option><option>10</option></select> min<button class="btn" data-act="skillSel">Drill</button></div></div>
+  </div>
+  <p class="muted small">Keyboard: type the answer — correct answers advance instantly. <b>Enter</b> submits (needed for estimates and approximate answers), <b>Esc</b> pauses, <b>Tab</b> skips in mock tests. Fractions can be typed as <span class="mono">3/8</span>.</p>`;
+}
+function renderLearn() {
+  const cats = ['Facts', 'Arithmetic', 'Techniques', 'Reasoning'];
+  $('#v-learn').innerHTML = `<h1>Learn</h1>
+  <div class="card"><h3>Why the trainer works the way it does</h3><ul class="small" style="margin:6px 0 0 18px;padding:0">
+  <li><b>Retrieval, not review.</b> You always produce the answer before seeing anything; explanations appear only after a miss or a very slow answer.</li>
+  <li><b>Difficulty at your edge.</b> Each skill has a ladder of levels. You are held where accuracy is about 85–90% and speed is near test pace, which is where learning per minute is highest.</li>
+  <li><b>Speed is graded, not just accuracy.</b> A correct answer slower than the test pace counts as a partial failure. Targets come from realistic time per question (e.g. 80 questions in 8 minutes ≈ 6 s each).</li>
+  <li><b>Spaced repetition on individual facts.</b> Each times-table fact, square and fraction has its own schedule: fast hits are pushed out to days or weeks, slow or wrong ones come back within minutes.</li>
+  <li><b>Root-cause targeting.</b> If 2-digit × 2-digit is slow, the trainer checks whether it is the underlying facts, addition or technique, and boosts those instead of just repeating the symptom. Wrong composite answers also flag the digit facts inside them.</li>
+  <li><b>Interleaving.</b> Mixed-skill sessions beat blocked ones for retention. Techniques are introduced with a short lesson, a cue that fades after ~25 attempts, then mixed in.</li>
+  <li><b>Immediate feedback and re-asking.</b> Misses are re-presented a few questions later (successful retrieval after failure is the point), and classified (carry slip, decimal place, transposition…) so the coaching is specific.</li>
+  <li><b>Short and daily.</b> 10–20 focused minutes a day, with the clock paused when you leave the tab.</li></ul></div>
+  ${cats.map(c => `<h2>${c}</h2>` + SKILLS.filter(d => d.cat === c).map(d => { const s = sk(d.id); return `<div class="card"><div class="row" style="justify-content:space-between"><div><b>${esc(d.name)}</b> <span class="tag">L${s.level}/${d.maxL}</span><div class="muted small">${esc(d.desc)}</div></div><button class="btn sm" data-act="skill:${d.id}">Drill 5 min</button></div>${LESSONS[d.id] ? `<div class="lesson">${LESSONS[d.id]}</div>` : ''}<details><summary class="small">Levels</summary><div class="small muted">${d.names.map((n, i) => `L${i + 1}: ${esc(n)} (target ≈ ${(d.T[i] * (PROFILE[S.settings.profile] || 1)).toFixed(1)}s + typing)`).join('<br>')}</div></details></div>`; }).join('')).join('')}`;
+}
+function renderMock() {
+  const hist = S.mocks.slice().reverse().slice(0, 12);
+  $('#v-mock').innerHTML = `<h1>Mock tests</h1><p class="muted small">No per-question feedback, as in a real test: Enter submits, Tab skips, wrong answers are only revealed at the end. Results feed back into your skill model. Firms change their formats, so treat these as training under comparable pressure (Optiver’s mental-arithmetic section, for example, is widely reported as about 80 questions in 8 minutes) and check each firm’s current instructions.</p>
+  <div class="grid2">${MOCKS.map(m => { const last = S.mocks.filter(x => x.id === m.id).slice(-1)[0]; return `<div class="card"><h3>${esc(m.name)}</h3><div class="muted small">${m.n} questions · ${m.min} min</div><p class="small">${esc(m.desc)}</p>${last ? `<div class="small muted">Last: ${last.correct}/${last.n} correct, ${last.wrong} wrong</div>` : ''}<button class="btn primary" data-act="mock:${m.id}">Start</button></div>`; }).join('')}</div>
+  <div class="card"><h3>Custom length</h3><div class="row"><label>Questions <input type="number" id="cmN" value="80" min="5" max="200" style="width:80px"></label><label>Minutes <input type="number" id="cmM" value="8" min="1" max="60" style="width:70px"></label><button class="btn" data-act="mockCustom">Start (reference mix)</button></div></div>
+  ${hist.length ? `<div class="card"><h3>History</h3><table><tr><th>Date</th><th>Test</th><th>Correct</th><th>Wrong</th><th>Time</th></tr>${hist.map(m => `<tr><td>${new Date(m.t).toLocaleDateString()}</td><td>${esc(m.name)}</td><td>${m.correct}/${m.n}</td><td>${m.wrong}</td><td>${fmtClock(m.ms)}</td></tr>`).join('')}</table></div>` : ''}`;
+}
+function spark(vals, opt = {}) {
+  const w = 300, h = 60, pad = 4; if (!vals.length) return '<div class="muted small">No data yet.</div>';
+  const mn = opt.min != null ? opt.min : Math.min(...vals), mx = opt.max != null ? opt.max : Math.max(...vals, mn + 1e-9);
+  const x = i => pad + (vals.length === 1 ? (w - 2 * pad) / 2 : i * (w - 2 * pad) / (vals.length - 1)), y = v => h - pad - (v - mn) / (mx - mn || 1) * (h - 2 * pad);
+  const ref = opt.ref != null ? `<line x1="0" x2="${w}" y1="${y(opt.ref)}" y2="${y(opt.ref)}" stroke="var(--line)" stroke-dasharray="3 3"/><text x="2" y="${y(opt.ref) - 2}">${opt.refLabel || ''}</text>` : '';
+  const last = vals[vals.length - 1]; return `<div class="small muted" style="float:right">latest ${opt.fmt ? opt.fmt(last) : Math.round(last * 100) / 100}</div><svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w}px">${ref}<polyline fill="none" stroke="var(--accent)" stroke-width="2" points="${vals.map((v, i) => x(i) + ',' + y(v)).join(' ')}"/>${vals.map((v, i) => `<circle cx="${x(i)}" cy="${y(v)}" r="2.5" fill="var(--accent)"/>`).join('')}</svg>`;
+}
+function renderInsights() {
+  const diag = diagnose(), ranked = diag.filter(x => x.score >= 0).sort((a, b) => b.score - a.score);
+  const days = Object.keys(S.days).sort().slice(-21);
+  const qs = days.map(k => S.days[k].n), spd = days.filter(k => S.days[k].rn).map(k => S.days[k].rs / S.days[k].rn), accs = days.filter(k => S.days[k].n).map(k => 100 * S.days[k].ok / S.days[k].n), idxs = days.filter(k => S.days[k].idx != null).map(k => S.days[k].idx);
+  const sel = window.__itemSkill || 'mul';
+  const errAll = {}; SKILLS.forEach(d => Object.entries(sk(d.id).err).forEach(([k, v]) => errAll[k] = (errAll[k] || 0) + v)); const errTot = Object.values(errAll).reduce((a, b) => a + b, 0);
+  $('#v-insights').innerHTML = `<h1>Insights</h1>
+  <div class="card"><h3>Diagnosis: where time is being lost</h3>${ranked.length ? `<table><tr><th>Skill</th><th>Main issue</th><th>Accuracy</th><th>Pace</th><th>Likely root cause</th></tr>${ranked.slice(0, 8).map(x => {
+    const wi = SK[x.d.id].item ? weakItems(x.d.id, 5) : [];
+    const causes = []; x.blockers.slice(0, 2).forEach(b => { const wb = SK[b.id].item ? weakItems(b.id, 4) : []; causes.push(`${esc(SK[b.id].name)}${wb.length ? ' (' + wb.map(i => fmtKey(b.id, i.key)).join(', ') + ')' : ''}`); });
+    if (wi.length) causes.push('slow facts: ' + wi.map(i => fmtKey(x.d.id, i.key)).join(', ')); if (x.topErr) causes.push(`most misses are “${ERR_NAME[x.topErr]}”`);
+    return `<tr><td><b>${esc(x.d.name)}</b><div class="muted small">L${x.s.level}/${x.d.maxL}</div></td><td>${esc(x.verdict)}</td><td>${x.w.acc == null ? '–' : Math.round(100 * x.w.acc) + '%'}</td><td>${x.w.spd == null ? '–' : x.w.spd.toFixed(2) + '×'}</td><td class="small">${causes.join('; ') || '—'}</td></tr>`;
+  }).join('')}</table><div class="muted small" style="margin-top:6px">Pace is average time ÷ target time for correct answers (1.0× = on test pace). Fluency scores combine accuracy and pace.</div>` : '<p class="muted">Do a placement or a few sessions and this fills in.</p>'}</div>
+  <div class="grid2">
+  <div class="card"><h3>Questions per day</h3>${spark(qs, { min: 0 })}<div class="muted small">last ${days.length} days with practice</div></div>
+  <div class="card"><h3>Accuracy % per day</h3>${spark(accs, { min: 50, max: 100 })}</div>
+  <div class="card"><h3>Pace (× target, lower is faster)</h3>${spark(spd, { min: .5, max: 3, ref: 1, refLabel: 'target' })}</div>
+  <div class="card"><h3>Fluency index</h3>${spark(idxs, { min: 0, max: 100 })}</div></div>
+  <div class="card"><h3>Fact map</h3><div class="row"><select id="itemSel">${['mul', 'divf', 'sq', 'pow', 'fd'].map(id => `<option value="${id}" ${id === sel ? 'selected' : ''}>${esc(SK[id].name)}</option>`).join('')}</select></div>
+  <div class="legend"><span>weak / slow</span><i style="background:${mix2(0)}"></i><i style="background:${mix2(.25)}"></i><i style="background:${mix2(.5)}"></i><i style="background:${mix2(.75)}"></i><i style="background:${mix2(1)}"></i><span>automatic</span><i style="background:transparent;border:1px dashed var(--muted)"></i><span>not seen yet</span></div>
+  ${factMap(sel)}</div>
+  ${errTot >= 5 ? `<div class="card"><h3>Error types (all time)</h3><table>${Object.entries(errAll).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<tr><td>${esc(ERR_NAME[k])}</td><td>${Math.round(100 * v / errTot)}%</td><td class="small muted">${esc(ERR_MSG[k])}</td></tr>`).join('')}</table></div>` : ''}
+  ${S.mocks.length ? `<div class="card"><h3>Mock test scores</h3>${spark(S.mocks.filter(m => m.id === 'ref').map(m => m.correct), { min: 0, max: 80 })}<div class="muted small">Numeracy sprint · reference, correct answers per attempt</div></div>` : ''}`;
+  const itemSel = $('#itemSel'); if (itemSel) itemSel.onchange = () => { window.__itemSkill = itemSel.value; renderInsights(); };
+}
+function factMap(id) {
+  const cell = (key, label) => { const it = S.items[itemKey(id, key)], m = itemMastery(it); const tip = it ? `${label}: ${it.cor}/${it.att} correct, ${it.eT != null ? it.eT.toFixed(2) + '× target' : 'n/a'}, box ${it.box}` : `${label}: not seen`; return { m, tip }; };
+  if (id === 'mul' || id === 'divf') {
+    const N = 20; let h = '<table class="heat"><tr><th></th>' + Array.from({ length: N - 1 }, (_, i) => `<th>${i + 2}</th>`).join('') + '</tr>';
+    for (let a = 2; a <= N; a++) { h += `<tr><th>${a}</th>`; for (let b = 2; b <= N; b++) { const k = Math.min(a, b) + 'x' + Math.max(a, b), c = cell(k, `${a}×${b}`); h += `<td class="c" title="${esc(c.tip)}" style="background:${c.m == null ? 'transparent;outline:1px dashed var(--line);outline-offset:-1px' : mix2(c.m)}"></td>`; } h += '</tr>'; } return h + '</table>';
+  }
+  const pool = SK[id].item.pool(SK[id].maxL); return '<div class="chips">' + pool.map(e => { const c = cell(e.key, fmtKey(id, e.key)); return `<span class="chip" title="${esc(c.tip)}" style="background:${c.m == null ? 'transparent;border:1px dashed var(--line);color:var(--muted)' : mix2(c.m)}">${esc(fmtKey(id, e.key))}</span>`; }).join('') + '</div>';
+}
+function renderSettings() {
+  const st = S.settings;
+  $('#v-settings').innerHTML = `<h1>Settings</h1><div class="card">
+  <div class="row" style="margin-bottom:10px"><label>Pace profile <select id="stProfile"><option value="standard">Standard (test pace)</option><option value="fast">Fast (80% of test time)</option><option value="elite">Elite (65%)</option></select></label></div>
+  <div class="row" style="margin-bottom:10px"><label><input type="checkbox" id="stAuto"> Auto-advance when the typed answer is exactly right</label></div>
+  <div class="row" style="margin-bottom:10px"><label><input type="checkbox" id="stPace"> Show the pace bar during drills</label></div>
+  <div class="row" style="margin-bottom:10px"><label>Default session (min) <input type="number" id="stMin" min="3" max="60" style="width:70px"></label><label>Daily goal (min) <input type="number" id="stGoal" min="3" max="120" style="width:70px"></label><label>Theme <select id="stTheme"><option value="auto">Auto</option><option value="dark">Dark</option><option value="light">Light</option></select></label></div></div>
+  <div class="card"><h3>Your data</h3><p class="muted small">Everything is stored in this browser only. Export a backup before clearing browser data or switching browsers.</p><div class="row"><button class="btn" id="btnExport">Export JSON</button><label class="btn">Import JSON<input type="file" id="fileImport" accept="application/json" style="display:none"></label><button class="btn danger" id="btnReset">Reset everything</button></div></div>`;
+  $('#stProfile').value = st.profile; $('#stAuto').checked = st.auto; $('#stPace').checked = st.pace; $('#stMin').value = st.sessMin; $('#stGoal').value = st.goal; $('#stTheme').value = st.theme;
+  $('#stProfile').onchange = e => { st.profile = e.target.value; save(); };
+  $('#stAuto').onchange = e => { st.auto = e.target.checked; save(); };
+  $('#stPace').onchange = e => { st.pace = e.target.checked; save(); };
+  $('#stMin').onchange = e => { st.sessMin = clamp(+e.target.value || 10, 3, 60); save(); };
+  $('#stGoal').onchange = e => { st.goal = clamp(+e.target.value || 15, 3, 120); save(); };
+  $('#stTheme').onchange = e => { st.theme = e.target.value; applyTheme(); save(); };
+  $('#btnExport').onclick = () => { flush(); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], { type: 'application/json' })); a.download = 'mental-math-progress-' + dayKey() + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); };
+  $('#fileImport').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const o = JSON.parse(t); if (!o || typeof o !== 'object' || !o.skills) throw 0; if (!confirm('Replace current progress with this file?')) return; const d = defaultState(); S = Object.assign(d, o, { settings: Object.assign(d.settings, o.settings || {}) }); flush(); applyTheme(); showView('home'); } catch (x) { alert('That file does not look like exported progress.'); } }); };
+  $('#btnReset').onclick = () => { if (confirm('Delete all progress? This cannot be undone.') && confirm('Really delete everything?')) { S = defaultState(); flush(); applyTheme(); showView('home'); } };
+}
+function applyTheme() { const t = S.settings.theme; if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t); }
+
+/* =====================================================================
+   wiring
+   ===================================================================== */
+document.addEventListener('click', e => {
+  const nb = e.target.closest('#nav button'); if (nb) { if (!Run) showView(nb.dataset.v); return; }
+  const a = e.target.closest('[data-act]'); if (!a || Run) return; e.preventDefault();
+  const [act, arg] = a.dataset.act.split(':');
+  if (act === 'go') showView(arg);
+  else if (act === 'smart') startRun({ mode: 'smart', min: +arg });
+  else if (act === 'weak') startRun({ mode: 'smart', min: +arg, only: 'weak' });
+  else if (act === 'facts') startRun({ mode: 'smart', min: +arg, only: 'facts' });
+  else if (act === 'skill') startRun({ mode: 'skill', skill: arg, min: 5 });
+  else if (act === 'skillSel') startRun({ mode: 'skill', skill: $('#skSel').value, min: +$('#skMin').value });
+  else if (act === 'place') startRun({ mode: 'placement', skills: CORE_PLACE });
+  else if (act === 'placeSel') { const ids = $$('#plChips input:checked').map(x => x.value); if (ids.length) startRun({ mode: 'placement', skills: ids, restart: $('#plRestart').checked }); }
+  else if (act === 'mock') { const m = MOCKS.find(x => x.id === arg); startRun({ mode: 'mock', mock: m, n: m.n, min: m.min }); }
+  else if (act === 'mockCustom') { const n = clamp(+$('#cmN').value || 80, 5, 200), mi = clamp(+$('#cmM').value || 8, 1, 60); startRun({ mode: 'mock', mock: { id: 'custom', name: `Custom ${n}/${mi}`, mix: MOCKS[0].mix }, n, min: mi }); }
+});
+
+function selfTest() {
+  const fails = []; const bad = (m) => { if (fails.length < 40) fails.push(m); };
+  SKILLS.forEach(d => {
+    for (let L = 1; L <= d.maxL; L++) {
+      const probs = [];
+      if (d.item) d.item.pool(L).forEach(e => probs.push(d.item.make(e.key, L))); else for (let i = 0; i < 250; i++) probs.push(d.gen(L));
+      probs.forEach(p => {
+        const tag = `${d.id} L${L} "${p.text}"`;
+        if (typeof p.ans !== 'number' || !isFinite(p.ans)) return bad(tag + ' bad ans');
+        if (!p.text || !p.explain) return bad(tag + ' missing text/explain');
+        const real = p.real !== undefined ? p.real : p.ans;
+        if (p.expr) { let v; try { v = Function('"use strict";return (' + p.expr + ')')(); } catch (x) { return bad(tag + ' expr error ' + p.expr); } if (Math.abs(v - real) > 1e-9 * Math.max(1, Math.abs(real))) bad(`${tag} expr=${p.expr} gives ${v}, ans ${real}`); }
+        const c = checkAns(p, String(p.ans)); if (!c.ok && !p.rtol) bad(tag + ' own answer rejected');
+        if (!p.rtol && !c.auto) bad(tag + ' own answer not auto-accepted');
+        if (p.rtol && !checkAns(p, String(Math.round(real))).ok) bad(tag + ' rounded real rejected');
+        if (p.frac && p.simp && !checkAns(p, p.simp).ok) bad(tag + ' simp fraction rejected');
+        const t = targetSec(d.id, L, p.ans); if (!(t > 0)) bad(tag + ' target');
+      });
+    }
+  });
+  return fails;
+}
+window.MM = { cur: () => Run && Run.p, run: () => Run, SKILLS, SK, S: () => S, sk, weakness, priority, makeProblem, checkAns, afterAnswer, updItem, classify, selfTest, diagnose, buildMock, startRun, pickSkill, fluencyIndex, mulPool, setState: x => { S = x; } };
+
+applyTheme();
+if (!storeOK) $('#storeWarn').style.display = '';
+showView('home');
+})();
+</script>
+</body>
+</html>
