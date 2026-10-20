@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Medtner Sonatas</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">Medtner · <span>two one-movement sonatas</span></div>
+  <nav id="tabs">
+    <button data-tab="nw" class="on">Night Wind <small>Op. 25/2</small></button>
+    <button data-tab="mi">Minacciosa <small>Op. 53/2</small></button>
+    <button data-tab="compare">Compare</button>
+  </nav>
+</header>
+
+<section id="player">
+  <button id="play" title="Play / pause (space)">▶</button>
+  <div class="clock"><span id="now">0:00</span> / <span id="dur">0:00</span></div>
+  <div class="where"><span id="barlabel">bar —</span><span id="seclabel"></span></div>
+  <label class="goto">bar <input id="gotobar" type="number" min="0"></label>
+  <label class="chk"><input type="checkbox" id="follow" checked> follow</label>
+  <label class="chk"><input type="checkbox" id="loopsel"> loop selection</label>
+  <label class="rate">speed <select id="rate"><option>0.5</option><option>0.75</option><option selected>1</option><option>1.25</option></select></label>
+</section>
+<canvas id="timeline" height="96"></canvas>
+
+<main id="piece">
+  <div id="scorewrap">
+    <div class="pagebar">
+      <button id="prevpage" title="Previous page">‹</button>
+      <span id="pagelabel"></span>
+      <button id="nextpage" title="Next page">›</button>
+      <span class="hint">click a bar to play from it · ←/→ bar · space play</span>
+    </div>
+    <div id="score"><img id="pageimg" alt="score page"><div id="overlay"></div></div>
+  </div>
+  <aside id="panel">
+    <nav id="subtabs">
+      <button data-sub="form" class="on">Form</button>
+      <button data-sub="motifs">Motifs</button>
+      <button data-sub="essays">Themes · Harmony · Rhythm</button>
+      <button data-sub="bar">This bar</button>
+    </nav>
+    <div id="sub-form" class="sub on"></div>
+    <div id="sub-motifs" class="sub"></div>
+    <div id="sub-essays" class="sub"></div>
+    <div id="sub-bar" class="sub"></div>
+  </aside>
+</main>
+
+<main id="compare" hidden>
+  <div class="cmpcharts">
+    <h3>Form in proportion (by duration in these recordings)</h3>
+    <canvas id="cmpform" height="180"></canvas>
+    <h3>Chromatic saturation (0 = one pitch class, 1 = all twelve equally), 4-bar window</h3>
+    <canvas id="cmpchroma" height="150"></canvas>
+    <h3>Share of each piece's motif statements, per tenth of its duration (%)</h3>
+    <canvas id="cmpdensity" height="150"></canvas>
+  </div>
+  <article id="cmptext"></article>
+</main>
+
+<audio id="audio" preload="auto"></audio>
+<script src="data.js"></script>
+<script src="analysis.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
