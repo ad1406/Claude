@@ -1,0 +1,86 @@
+{
+ "started": 1790274860.1483393,
+ "checks": {
+  "python": {
+   "ok": true,
+   "detail": "3.12.14 on Windows-11-10.0.26200-SP0",
+   "sec": 0.1
+  },
+  "import numpy": {
+   "ok": true,
+   "detail": "2.4.6",
+   "sec": 0.0
+  },
+  "import scipy": {
+   "ok": true,
+   "detail": "1.18.1",
+   "sec": 0.0
+  },
+  "import librosa": {
+   "ok": true,
+   "detail": "0.11.0",
+   "sec": 0.0
+  },
+  "import synctoolbox": {
+   "ok": true,
+   "detail": "ok",
+   "sec": 0.0
+  },
+  "import pymupdf": {
+   "ok": true,
+   "detail": "1.28.2",
+   "sec": 0.1
+  },
+  "import music21": {
+   "ok": true,
+   "detail": "9.9.2",
+   "sec": 0.5
+  },
+  "import av": {
+   "ok": true,
+   "detail": "18.1.0",
+   "sec": 0.1
+  },
+  "import yt_dlp": {
+   "ok": true,
+   "detail": "ok",
+   "sec": 0.1
+  },
+  "import homr": {
+   "ok": true,
+   "detail": "ok",
+   "sec": 0.0
+  },
+  "import onnxruntime": {
+   "ok": true,
+   "detail": "1.30.0",
+   "sec": 0.1
+  },
+  "import cv2": {
+   "ok": true,
+   "detail": "4.14.0",
+   "sec": 0.0
+  },
+  "deno (for YouTube)": {
+   "ok": true,
+   "detail": "C:\\Users\\alexa\\Scripts\\Music Practice 9-23-2026\\app\\.venv\\Scripts\\deno.exe",
+   "sec": 0.0
+  },
+  "OMR models": {
+   "ok": true,
+   "detail": "models ready",
+   "sec": 2.9
+  },
+  "audio decoding": {
+   "ok": true,
+   "detail": "decoded 53184 samples from Schubert Part 1.m4a",
+   "sec": 0.0
+  },
+  "YouTube access": {
+   "ok": true,
+   "detail": "'Schubert - Piano Sonata No. 19 in C Minor, D.958 (' - 5 audio formats",
+   "sec": 2.6
+  }
+ },
+ "done": true
+}
