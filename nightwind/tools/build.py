@@ -12,7 +12,9 @@ def main():
     C = Corpus()
     # notes: [page, x, y, time, dur(s), pitch, hand]
     end_q = {}
-    nxt = {n["tie"]: n for n in allnotes if n["tie"]}
+    byid0 = {n["id"]: n for n in allnotes}
+    nxt = {n["tie"]: n for n in allnotes if n["tie"] and n["tie"] in byid0 and byid0[n["tie"]]["pitch"] == n["pitch"]
+           and abs(byid0[n["tie"]]["q1"] - n["q0"]) < 0.02}         # only real continuations (unclosed ties in the MusicXML)
     for n in allnotes:
         e = n
         while e["id"] in nxt: e = nxt[e["id"]]

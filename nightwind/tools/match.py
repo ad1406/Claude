@@ -110,7 +110,9 @@ def _search(P, T, iv, rh, use_rh, mode, gap, rtol, smin, smax, maxcost, fold, ou
 class Corpus:
     def __init__(self):
         D = json.load(open(os.path.join(ROOT, "build", "notes.json")))
-        nxt = {n["tie"]: n for n in D["notes"] if n["tie"]}
+        byid0 = {n["id"]: n for n in D["notes"]}
+        nxt = {n["tie"]: n for n in D["notes"] if n["tie"] and n["tie"] in byid0 and byid0[n["tie"]]["pitch"] == n["pitch"]
+               and abs(byid0[n["tie"]]["q1"] - n["q0"]) < 0.02}     # only real continuations (unclosed ties in the MusicXML)
         for n in D["notes"]:                        # sounding end through ties
             e = n
             while e["id"] in nxt: e = nxt[e["id"]]
@@ -221,7 +223,8 @@ def _find(C, spec):
                         hits.append(dict(ids=ids, runs=runs, cost=float(oc[i]), mode=mname, form=tname, line=f"{ln['src'][0]}{ln['src'][1]}.{ln['src'][2]}",
                                          side=ln["side"], level=str(ln["level"]), collapse=collapse, rscale=float(os_[i])))
     if spec.get("chain"):
-        global CHAIN_OVERLAP; CHAIN_OVERLAP = spec.get("chain_overlap", 99); hits = chain(hits)
+        global CHAIN_OVERLAP; CHAIN_OVERLAP = spec.get("chain_overlap", 99)
+        hits = chain([h for h in hits if gaps_ok(C, spec, h)])     # a run never bridges a gap a single statement could not
     return postfilter(C, spec, hits)
 
 CHAIN_OVERLAP = 99
@@ -245,6 +248,12 @@ def chain(hits, overlap=None):
 
 RANK = {"exact": 0, "tonal": 1, "octave": 2, "contour": 3}
 LEVEL_RANK = {"surface": 0, "0.5": 1, "1": 2, "2": 3, "bar": 4}
+
+def gaps_ok(C, spec, h):
+    ns = [C.by_id[i] for i in h["ids"]]; beat = C.beat[ns[0]["bar"] - 1]
+    lasts = [C.by_id[r[-1]] for r in h["runs"]] if h.get("runs") else ns
+    dts = [(ns[k + 1]["q0"] - lasts[k]["q0"]) / beat for k in range(len(ns) - 1)]
+    return not (spec.get("beatmax") is not None and max(dts) > spec["beatmax"] + 1e-6)
 
 def postfilter(C, spec, hits):
     out = []

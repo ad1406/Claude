@@ -46,7 +46,7 @@ MOTIFS = [
   # ---- The Song
   dict(id="sigh", family="song", name="Sigh", label="held note, lower neighbour, rise",
        spec=dict(iv=[-1, 1, 2], modes=["exact", "tonal"], transforms=["P", "I"], levels=["surface", 0.5], sides=["top", "bottom"],
-                 sources=["v", "h"], gap=0, filter=long_first),
+                 sources=["v", "h"], gap=0, beatmax=4.1, filter=long_first),
        desc="E (held)–D♯–E–F♯. Exact and tonal (whole-tone neighbour) forms; inverted (upper neighbour, falling)."),
   dict(id="climb", family="song", name="Climb", label="two steps up, one back",
        spec=dict(iv=[2, -3, 1, 2, 2], modes=["tonal", "contour"], transforms=["P", "I"], levels=["surface"], sides=["top", "bottom"],
@@ -59,7 +59,7 @@ MOTIFS = [
        desc="B–E–B–E (b. 4), F♯–B–F♯–B (b. 8): the Song's cadence. Also its inversion (E–B–E–B) and octave-displaced forms."),
   dict(id="ascent", family="song", name="Stepwise ascent", label="five or more notes rising by step, in long values",
        spec=dict(iv=[1, 1, 1, 1], modes=["contour"], transforms=["P"], levels=[1, 2, "bar"], sides=["top", "bottom"],
-                 sources=["v", "h"], collapse=[True], beatmin=0.9, chain=True, fold=True),
+                 sources=["v", "h"], collapse=[True], beatmin=0.9, beatmax=6, chain=True, fold=True),
        desc="The Song's rising line in its structural form, one step per beat or slower (E–F♯–G–A–B over bars 2–4), wherever "
             "it is carried, in melody or bass."),
   dict(id="songfull", family="song", name="Song (whole phrase)", label="the complete theme",
@@ -69,7 +69,7 @@ MOTIFS = [
   # ---- The Descent
   dict(id="chrom", family="descent", name="Chromatic descent", label="five or more notes falling by semitones",
        spec=dict(iv=[-1, -1, -1, -1], modes=["exact", "octave"], transforms=["P", "I"], levels=["surface", 0.5, 1, 2], sides=["top", "bottom"],
-                 sources=["v", "h", "all"], collapse=[True], beatmin=0.24, chain=True),
+                 sources=["v", "h", "all"], collapse=[True], beatmin=0.24, beatmax=4.1, chain=True),
        desc="The counterline's chromatic form, and its inversion (the chromatic bass that climbs under the Allegro's "
             "transition, A♯–B–C–C♯–D, b. 72, and E–F–F♯ under the fff of b. 76). Searched in the structural lines too (beat by beat, the highest or lowest "
             "note), so it is found when each tone is ornamented: in b. 496 the bass A–G♯–G–F♯–F–E sounds each tone with "
@@ -81,7 +81,7 @@ MOTIFS = [
             "structural layer of later passages, e.g. the bass of b. 528 (E–D–C♯–C again, each on a beat)."),
   dict(id="steps", family="descent", name="Stepwise descent", label="six or more notes falling by step, in long values",
        spec=dict(iv=[-1, -1, -1, -1, -1], modes=["contour"], transforms=["P"], levels=[1, 2, "bar"], sides=["top", "bottom"],
-                 sources=["v", "h"], collapse=[True], beatmin=0.9, chain=True, fold=True),
+                 sources=["v", "h"], collapse=[True], beatmin=0.9, beatmax=6, chain=True, fold=True),
        desc="The counterline's diatonic form, at beat level or slower: the chorale descents of Part II (b. 293), the "
             "basses under the Song."),
   dict(id="circle", family="song", name="Circling", label="double neighbour around one tone",
@@ -91,12 +91,12 @@ MOTIFS = [
             "is the murmuring layer of the Fantasia (b. 336, 571) and of the Giocondamente's pedal."),
   # ---- Wind figures
   dict(id="ostinato", family="wind", name="Allegro ostinato", label="fifth, fourth, then a scale arch",
-       spec=[dict(iv=[7, 5, 2, 1, 2, -2, -1], modes=["tonal"], transforms=["P", "I"], levels=["surface"], sides=["bottom", "top"], sources=["v", "h"]),
-             dict(iv=[12, 7, 2, 1, 2, -2, -1], modes=["tonal"], transforms=["P"], levels=["surface"], sides=["bottom"], sources=["v", "h"])],
+       spec=[dict(iv=[7, 5, 2, 1, 2, -2, -1], modes=["tonal"], transforms=["P", "I"], levels=["surface"], sides=["bottom", "top"], sources=["v", "h"], beatmax=1.1),
+             dict(iv=[12, 7, 2, 1, 2, -2, -1], modes=["tonal"], transforms=["P"], levels=["surface"], sides=["bottom"], sources=["v", "h"], beatmax=1.1)],
        desc="E–B–E–F♯–G–A–G–F♯…: the Allegro's quaver bass, a swinging fourth (the Song's cadence) opened into a climb and a descent."),
   dict(id="arch", family="wind", name="Arch", label="arpeggio rising three steps, falling back",
        spec=dict(iv=[3, 4, 5, -5, -4], modes=["tonal", "contour"], transforms=["P", "I"], levels=["surface", 1], sides=["top", "bottom"],
-                 sources=["v", "h"], rhythm=[1, 1, 1, 1, 1], rtol=0.3, beatmin=0.9),
+                 sources=["v", "h"], rhythm=[1, 1, 1, 1, 1], rtol=0.3, beatmin=0.9, beatmax=3.1),
        desc="The second theme's head (b. 80, F♯–A–C♯–F♯–C♯–A) and, augmented, the bass of the Stentato (b. 108)."),
   dict(id="pedal", family="wind", name="Fluttering pedal", label="melody tone over a neighbour oscillation",
        spec=dict(iv=[-5, -2, 2, -2, 2], modes=["exact", "tonal"], transforms=["P", "I"], levels=["surface"], sides=["top", "bottom"],
