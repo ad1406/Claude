@@ -1,0 +1,407 @@
+1 K1 | T5/4 | Introduzione. | Andante | MM quarter=50 | <ff> | all' improvisa | dimin.
+2 T4/4 | tranquillo | <p>
+8 m.d.
+13 ten. | poco calando
+14 cantabile dolce
+16 sotto | ten. | cresc. | legatissimo, espressivo
+17 ten.
+18 <p> | subito
+19 <f> | agitato
+20 cresc.
+22 <ff>
+23 <mp>
+24 <f> | con Ped. | <mp>
+25 <f> | appassionato
+26 ten.
+29 <other-dynamics,f> | cre
+30 sotto
+31 <f>
+32 <ff>
+34 T5/4 | Poco a poco più mosso.
+36 <p>
+38 T15/8 | Allegro | MM quarter.=92 | - 100 | <fz> | sempre poco pedale
+39 <fz>
+40 pesante
+41 cantando
+44 <p> | cresc.
+46 <f>
+47 <fz> | diminuendo
+48 pesante | <f>
+49 <p> | <f>
+50 cantando
+52 cresc.
+53 <f> | cantando
+54 <f> | risoluto
+55 <other-dynamics> | leggiero, vivo | senza pedale
+56 <other-dynamics,f> | poco pedale
+57 <f> | risoluto
+58 cresc.
+59 <other-dynamics> | <fz>
+60 espressivo
+61 diminuendo
+62 <mp> | leggiero
+64 cresc.
+65 <other-dynamics> | <fz> | espr.
+67 dimin.
+68 K1 | <p>
+69 <p>
+70 <pp>
+71 con pedale
+72 <mp> | molto pesante | cresc. | con ped.
+73 poco agitato | <f>
+74 <mf> | pesante | cresc. | con fermezza
+75 poco agitato | <ff>
+76 <fff>
+77 sempre più tranquillo | diminuendo
+78 <mp> | diminuendo
+79 <p> | calando
+80 K2 | (Tranquillo. | MM quarter.=72 | - 80) | <pp>
+84 <p>
+85 poco a poco scherzando
+86 cresc.
+87 <mf> | calando
+88 <p> | tranquillo
+90 cresc.
+92 scherzando | m.s.
+93 cresc. ed accel.
+94 <pp> | svegliando, veloce | <f>
+95 dimin.
+96 (Giocondamente. | MM quarter.=88 | - 92) | <p> | leggiero | <mf>
+98 articolando
+99 <p> | leggiero | <mf>
+102 <pp> | senza pedale
+104 sdegnoso | crescendo
+106 <ff> | risoluto, | pesante | m.s.
+107 ten. | calando
+108 (Stentanto. | MM quarter.=72 | ) | <pp>
+110 <p> | poco a poco animato
+112 <mf> | sempre cresc.
+114 <f>
+116 <ff> | appass.
+118 (Giocondamente. | MM quarter.=92 | ) | <ff> | risoluto
+122 <other-dynamics,f> | <fz>
+123 cresc. | <fz>
+124 allarg.
+125 <ff>
+126 poco calando
+127 <ff>
+128 molto calando | <pp>
+129 <ppp> | dolce | poco a poco a tempo
+130 cresc.
+131 <mp>
+132 <mf>
+133 diminuendo
+134 ritenuto
+135 (Largamente. | MM quarter.=60 | ) | <fz> | all' improvisa | diminuendo | m.d. | sempre con | m.s. | ten.
+136 <p>
+137 molto tranquillo | <pp> | <mp>
+138 poco calando
+139 <fz> | all' improvisa | ten.
+140 <p>
+143 <fz> | diminuendo
+144 (Più mosso. |  | = 72) | <p> | senza ped.
+145 <f> | con ped.
+146 <p> | senza ped.
+147 <f> | risoluto con ped. | poco affannato
+148 <ff>
+149 <mp> | tranquillo
+151 cresc. e più agitato
+152 <f>
+153 K-6 | <ff>
+154 <pp> | cantabile, placido
+156 (Poco a poco ritornando al tempo I.)
+157 cresc.
+158 <f> | espressivo
+160 <fz> | <p> | poco scherzando | marcato
+161 <p>
+162 <f> | risoluto
+163 m.d. | addolcito, espressivo
+164 <f> | m.s. | espressivo
+166 K0 | <f>
+167 cresc. | <p>
+168 <other-dynamics> | cresc. | <p>
+169 loco | <ff> | risonante
+170 <p> | leggierissimo
+171 m.s. | m.d.
+172 m.d. | <p>
+173 K1 | <pp>
+174 non legato | <p>
+175 <mf>
+176 <f> | risoluto
+178 cresc.
+179 Tempo I. | <ff>
+181 molto pesante
+182 <p> | <f>
+183 molto cresc.
+188 diminuendo
+189 pesante
+190 cantando
+191 <p> | leggiero
+192 <f>
+193 <fz> | <p> | leggiero vivo | senza pedale
+194 <other-dynamics,f> | poco pedale
+195 <f> | risoluto
+197 <fz>
+198 <fz> | m.s.
+199 <f> | risonante | con pedale
+200 sempre più tranquillo e dim.
+202 <mp>
+203 molto calando
+204 (Tranquillo. | MM quarter.=80 | ) | <p>
+207 poco scherzando; cresc.
+209 <f> | poco affrettando | poco rit.
+210 giocondamente | <mf> | leggiero | <p>
+212 articolando
+213 <p> | leggiero
+216 <p> | senza pedale
+218 cresc.
+220 <f> | m.s.
+221 calando | ten.
+222 stentato | <pp>
+223 cresc.
+224 <pp> | subito
+225 cresc.
+226 sempre più agitato
+228 <f>
+230 <ff> | appassionato
+232 <p>
+233 <f> | <p>
+234 K4 | <fz> | giocondamente
+235 cresc.
+236 <ff> | poco allargando
+237 <ff> | <p> | sempre crescendo
+238 <fz>
+239 <fz> | appassionato | m.d. | m.s.
+240 <fz> | <ff>
+241 Molto giocondamente.
+243 <ff> | pesante
+246 con strepito
+247 <ff> | ritardando
+248 m.s.
+249 diminuendo | m.s.
+250 K-4 | T4/4 | Tempo dell'introduzione. | <p>
+253 poco rit. | fermata
+256 m.s. | m.d.
+257 m.d.
+261 poco calando
+262 K1 | <p> | teneramente
+264 <p> | <pp>
+265 <p>
+267 <f> | agitato
+268 cresc.
+270 <ff>
+271 <mp> | cantando | cresc.
+272 T3/2 | ten.
+273 <f>
+274 m.s.
+275 T4/4 | molto allargando
+276 <ff> | risonante | perdendosi | fermata | lento | <pp>
+277 a tempo | irresoluto | fermata
+278 poco accel. | poco riten.
+279 sempre accelerando
+281 <pp> | veloce | molto cresc.
+282 <f>
+283 <p> | leggierissimo
+284 lunga | fermata | <pp> | Attacca
+285 T4/4 | poco a poco | Allegro molto sfrenatamente. | MM half=84 | <mp> | marcato
+290 crescendo
+292 <f>
+293 <mp>
+295 crescendo
+297 <mp>
+299 crescendo
+302 <f>
+304 <ff>
+306 <mp>
+307 cresc.
+309 <f>
+310 <ff>
+311 <p>
+319 <f>
+321 <f>
+323 <f> | cresc.
+324 <ff> | tumultuoso
+325 pesante
+327 <p> | leggiero
+328 espressivo
+329 <other-dynamics,pp,other-dynamics>
+330 <other-dynamics,pp,other-dynamics> | <mp> | carezzando
+331 pochiss. riten.
+332 leggiero | ritornando al tempo
+336 a tempo | <pp> | susurrando
+340 <p>
+342 cresc.
+348 <ff>
+349 <p> | leggiero
+350 espressivo
+353 pochiss. riten.
+354 leggiero | ritornando al tempo
+358 <p> | a tempo | ten.
+362 cantando
+365 <f> | allargando
+368 K2 | <f> | leggiero
+370 <mf> | leggiero
+372 Tenebroso. ( | MM half=60 | - 66) | <p> | poco pedale
+376 simile
+385 cresc.
+388 <mf>
+389 diminuendo
+392 Meno mosso, ma poco a poco ritornando al tempo. | <pp> | senza pedale | una corda
+396 sempre crescendo ed agitato
+397 <fz>
+398 <fz>
+399 <fz>
+400 <f>
+404 a tempo
+408 <ff>
+411 diminuendo
+412 <p> | <mf> | espressivo, dolente
+414 <p> | <mf>
+416 cresc.
+418 <f> | risoluto
+422 <other-dynamics,f> | diminuendo
+424 <p> | espressivo
+428 <p>
+430 <p>
+432 <mp>
+434 <mf>
+436 <f> | pleno
+438 poco a poco ritenuto
+440 diminuendo
+442 slentando | cantabile
+444 Meno mosso, con meditazione. | <p>
+450 K0
+454 poco a poco crescendo e svegliando
+458 <f>
+462 a tempo (non subito) | m.d.
+463 <p>
+467 <p> | sopra
+469 <fz>
+471 <p> | sempre crescendo
+478 <f> | con strepito
+479 crescendo
+480 K5 | <ff> | diminuendo
+484 <p> | marcato il basso
+488 crescendo
+492 <f>
+493 m.s.
+495 diminuendo
+496 K0 | vertiginoso | <p> | leggiero
+500 crescendo
+504 <f>
+505 dimin.
+507 crescendo
+508 <f>
+509 leggiero | m.d.
+510 cresc.
+511 m.d.
+512 <ff>
+516 m.d.
+519 <fz>
+520 <other-dynamics>
+522 K1 | molto vertigimoso | <fz> | <p>
+526 <fz> | <pp> | leggiero
+529 <p> | sempre crescendo
+532 <ff> | tumultuoso
+534 Tempo I. | molto marcato
+538 <p>
+539 crescendo
+541 <f>
+542 <mp>
+544 crescendo
+546 <mp>
+548 crescendo
+551 <f>
+553 <other-dynamics>
+555 <mp>
+556 crescendo
+558 <f>
+559 poco allarg.
+561 K-2 | <fff> | quasi cadenza (fermato) | Pedale tenuto al segno
+563 <p> | calmando
+565 carrezzando
+566 poco riten.
+567 leggierissimo | poco a poco accelerando
+570 diminuendo
+571 <pp> | Tempo I. | susurrando
+577 Concentrando, ma sempre con moto.
+578 <p>
+579 cantabile
+580 poco crescendo
+583 <pp> | ten.
+586 poco crescendo
+587 ten.
+588 poco calando | <pp>
+589 a tempo | susurrando
+593 <mp> | espressivo | poco sostenuto
+595 poco a poco più agitato | crescendo
+597 K2 | <fz>
+598 <mp>
+599 cresc.
+601 <f> | agitato
+602 cresc.
+603 ritenuto
+604 a tempo | <ff> | molto agitato
+606 <p> | <ff>
+608 <p> | <ff>
+611 <fz>
+612 <fz>
+614 ritenuto
+616 meno mosso | <fz>
+617 accelerando
+618 <ff> | affannato
+620 meno mosso | <fz>
+621 accelerando
+622 <ff> | affannato
+624 <ff>
+628 allargando
+629 Largamente. | MM half=
+631 K1 | plenissimo
+633 poco a poco più mosso
+634 sempre più dolce
+636 m.d. | m.s.
+639 (sempre più mosso)
+643 ten.
+645 diminuendo
+646 m.d.
+647 <p> | Tenebroso. | MM half=60
+651 (sempre più mosso) | crescendo
+653 <p>
+654 cresc.
+655 <p>
+656 crescendo
+658 <f>
+659 a tempo
+663 <ff>
+667 <f> | acciacato
+668 <other-dynamics>
+669 <p> | <f>
+671 <p> | <f>
+673 <p> | dolente
+674 <fz>
+675 <p>
+676 <fz>
+677 m.d. | m.s.
+678 m.d.
+679 <fz>
+681 <fz>
+682 <fz>
+683 <fz>
+684 poco allargando | <fz>
+685 <ff> | sempre più sfrenamente
+686 al fine | <fz>
+689 <fz>
+690 diminuendo
+692 <pp>
+693 <fz>
+694 ten.
+695 <fz>
+701 <p>
+703 <fz>
+704 diminuendo
+705 <p>
+709 sempre dimin. al fine | <p> | <fz>
+717 <pp> | tenebroso, legatissimo
+720 perdendosi
+722 <pp> | leggierissimo
+723 <pp>

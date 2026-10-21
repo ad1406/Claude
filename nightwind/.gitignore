@@ -1,0 +1,5 @@
+src/mxl/
+src/mscz/
+build/score.mei
+build/timemap.json
+tools/__pycache__/

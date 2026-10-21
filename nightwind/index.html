@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Night Wind Walkthrough</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header id="top">
+  <div class="title"><b>Medtner</b> · Sonata in E minor, Op. 25 No. 2 <i>“Night Wind”</i></div>
+  <div class="transport">
+    <button id="play" title="Play / pause (Space)">▶</button>
+    <span id="clock">0:00 / 0:00</span>
+    <span id="where"><b id="barno">bar 1</b> <span id="stationname"></span></span>
+  </div>
+  <div class="toggles">
+    <label title="Follow the music (F)"><input type="checkbox" id="follow" checked> follow</label>
+    <label title="Loop the current station or selected statement (L)"><input type="checkbox" id="loop"> loop</label>
+    <label title="Speed ([ and ])">speed <select id="rate"><option>0.5</option><option>0.75</option><option selected>1</option><option>1.25</option><option>1.5</option></select></label>
+    <button id="helpbtn" title="Keyboard shortcuts (?)">?</button>
+  </div>
+</header>
+<canvas id="timeline" height="112"></canvas>
+<div id="main">
+  <div id="score" tabindex="-1"></div>
+  <aside id="panel">
+    <section id="station" class="card"><h2 id="sthead"></h2><div class="meta" id="stmeta"></div><div class="body" id="sttext"></div>
+      <div class="stnav"><button id="stprev" title="↑">↑ previous station</button><button id="stnext" title="↓">next station ↓</button></div></section>
+    <section id="idea" class="card"><h2>The idea <button class="fold" data-fold="idea" title="T">hide</button></h2><div class="body"></div></section>
+    <section id="now" class="card"><h2>Sounding now</h2><div class="body" id="nowlist"></div></section>
+    <section id="motifs" class="card"><h2>Motifs <span class="hint">1–4 toggle a family · M select · N/P jump</span></h2><div class="body" id="legend"></div></section>
+  </aside>
+</div>
+<div id="help" hidden>
+  <div class="helpbox">
+    <h2>Keyboard</h2>
+    <table>
+      <tr><td>Space</td><td>play / pause</td></tr>
+      <tr><td>← →</td><td>previous / next bar (Shift: 4 bars)</td></tr>
+      <tr><td>↑ ↓</td><td>previous / next station of the walkthrough</td></tr>
+      <tr><td>N P</td><td>next / previous statement of the selected motif (any shown motif if none is selected)</td></tr>
+      <tr><td>M Shift+M</td><td>select the next / previous motif</td></tr>
+      <tr><td>Enter</td><td>play only the selected statement</td></tr>
+      <tr><td>1 2 3 4</td><td>show / hide the Call, the Song, the Descent, the Wind figures</td></tr>
+      <tr><td>A</td><td>show all families</td></tr>
+      <tr><td>S</td><td>solo the selected motif (hide the others)</td></tr>
+      <tr><td>W</td><td>show the wedge partner of the current statement</td></tr>
+      <tr><td>Esc</td><td>clear the selection</td></tr>
+      <tr><td>G</td><td>go to bar…</td></tr>
+      <tr><td>F L T</td><td>follow · loop · show/hide “The idea”</td></tr>
+      <tr><td>[ ]</td><td>slower / faster</td></tr>
+      <tr><td>click a note</td><td>every statement that note belongs to</td></tr>
+      <tr><td>click a bar</td><td>play from that bar</td></tr>
+    </table>
+    <p>Boxes mark motif statements, one box per system; the rings show exactly which notes belong to it. The yellow dots are
+    the notes sounding in the recording.</p>
+    <button id="helpclose">close</button>
+  </div>
+</div>
+<audio id="audio" preload="auto"></audio>
+<script src="data.js"></script>
+<script src="analysis.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
