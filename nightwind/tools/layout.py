@@ -8,10 +8,11 @@ def main():
     D = json.load(open(os.path.join(ROOT, "build", "notes.json")))
     mid2n = {m["id"]: k + 1 for k, m in enumerate(D["measures"])}
     heads, bars, systems = {}, {}, []
-    sysg = {}; barx = {}; order = []; msys = {}
+    sysg = {}; barx = {}; order = []; msys = {}; heights = []
     pages = sorted(os.listdir(os.path.join(ROOT, "build", "svg")))
     for pi, fn in enumerate(pages):
         s = open(os.path.join(ROOT, "build", "svg", fn)).read()
+        heights.append(int(re.search(r'class="definition-scale"[^>]*viewBox="0 0 \d+ (\d+)"', s).group(1)))
         stack = []; ox, oy = 500, 500
         for m in OPEN.finditer(s):
             tok = m.group(0)
@@ -47,7 +48,7 @@ def main():
         if n: bars[n] = [sb[0], left, sb[2], right, sb[4]]
         x = sysbox.setdefault(sy, sb + [n or 10**6, n or 0]); x[5] = min(x[5], n or 10**6); x[6] = max(x[6], n or 0)
         left = right
-    out = dict(page_w=21000, page_h=29700, pages=len(pages), heads=heads,
+    out = dict(page_w=21000, page_h=max(heights), page_hs=heights, pages=len(pages), heads=heads,
                bars={n: b[:5] for n, b in sorted(bars.items())}, systems=sorted(sysbox.values(), key=lambda s: s[5]))
     json.dump(out, open(os.path.join(ROOT, "build", "layout.json"), "w"))
     print(len(heads), "noteheads,", len(bars), "bars,", len(sysbox), "systems")

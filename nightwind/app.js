@@ -52,9 +52,9 @@ document.addEventListener("click", e => {
 const score = $("#score"); const pageEls = [];
 D.pages.forEach((p, i) => {
   const div = document.createElement("div"); div.className = "page"; div.dataset.p = i + 1;
-  div.style.aspectRatio = `${D.page_w} / ${D.page_h}`;
+  div.style.aspectRatio = `${D.page_w} / ${p.h}`;
   div.innerHTML = `<img alt="page ${i + 1}" loading="lazy" src="build/${p.src}"><span class="pno">${i + 1}</span>`;
-  const ov = document.createElementNS(NS, "svg"); ov.setAttribute("class", "ov"); ov.setAttribute("viewBox", `0 0 ${D.page_w} ${D.page_h}`);
+  const ov = document.createElementNS(NS, "svg"); ov.setAttribute("class", "ov"); ov.setAttribute("viewBox", `0 0 ${D.page_w} ${p.h}`);
   div.appendChild(ov); score.appendChild(div); pageEls.push({ div, ov, drawn: false });
 });
 const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) drawPage(+e.target.dataset.p); }), { root: score, rootMargin: "1200px 0px" });
@@ -121,7 +121,7 @@ function drawDots(t) {
 // ---------------- clicking
 function clickScore(ev, page, bar, hitk) {
   const P = pageEls[page - 1], r = P.ov.getBoundingClientRect();
-  const x = (ev.clientX - r.left) / r.width * D.page_w, y = (ev.clientY - r.top) / r.height * D.page_h;
+  const x = (ev.clientX - r.left) / r.width * D.page_w, y = (ev.clientY - r.top) / r.height * D.pages[page - 1].h;
   // nearest notehead
   let best = null, bd = 1e12;
   for (let i = 0; i < N.length; i++) { const n = N[i]; if (n[0] !== page) continue; const d = (n[1] + 145 - x) ** 2 + (n[2] - y) ** 2; if (d < bd) { bd = d; best = i; } }
@@ -217,8 +217,9 @@ function playOnly(k) { const h = H[k]; st.stopAt = h.t1 + 0.4; seek(h.t0 - 0.12,
 function scrollToBar(b, force) {
   const bx = D.bars[b - 1]; if (!bx) return; const P = pageEls[bx[0] - 1]; drawPage(bx[0]);
   const r = P.div.getBoundingClientRect(), sr = score.getBoundingClientRect();
-  const y = r.top - sr.top + score.scrollTop + (bx[2] - 900) / D.page_h * r.height;
-  const yb = r.top - sr.top + score.scrollTop + (bx[4] + 900) / D.page_h * r.height;
+  const ph = D.pages[bx[0] - 1].h;
+  const y = r.top - sr.top + score.scrollTop + (bx[2] - 900) / ph * r.height;
+  const yb = r.top - sr.top + score.scrollTop + (bx[4] + 900) / ph * r.height;
   if (force || y < score.scrollTop + 20 || yb > score.scrollTop + score.clientHeight - 40) score.scrollTo({ top: y - score.clientHeight * 0.22, behavior: "smooth" });
 }
 

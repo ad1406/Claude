@@ -53,7 +53,7 @@ def main():
             if set(ha["n"]) & set(hb["n"]): continue
             wedges.append([a, b, round(max(ha["t0"], hb["t0"]), 2), round(min(ha["t1"], hb["t1"]), 2)])
     print("wedges", len(wedges))
-    pages = [dict(src=f"svg/p{p:02d}.svg") for p in range(1, L["pages"] + 1)]
+    pages = [dict(src=f"svg/p{p:02d}.svg", h=L["page_hs"][p - 1]) for p in range(1, L["pages"] + 1)]
     bars = [L["bars"][str(k)] for k in range(1, len(D["measures"]) + 1)]
     data = dict(page_w=L["page_w"], page_h=L["page_h"], pages=pages, bars=bars, systems=L["systems"],
                 bar_t=S["bars"] + [S["end"]], notes=notes, families=FAMILIES, motifs=motifs, hits=hits, wedges=wedges,

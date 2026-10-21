@@ -4,7 +4,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 NS = "{http://www.music-encoding.org/ns/mei}"; XID = "{http://www.w3.org/XML/1998/namespace}id"
 def toolkit():  # (kept for render parity)
     tk = verovio.toolkit()
-    tk.setOptions({"breaks": "encoded", "pageWidth": 2100, "pageHeight": 2970, "scale": 40, "adjustPageHeight": False,
+    tk.setOptions({"breaks": "encoded", "pageWidth": 2100, "pageHeight": 2970, "scale": 40, "adjustPageHeight": True,
                    "footer": "none", "header": "auto", "svgHtml5": True, "xmlIdSeed": 1})
     assert tk.loadFile(os.path.join(ROOT, "src", "night-wind.mxl")); return tk
 if __name__ == "__main__":

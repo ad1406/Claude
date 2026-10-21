@@ -3,7 +3,7 @@ import json, os, sys, verovio
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 verovio.enableLog(verovio.LOG_OFF) if hasattr(verovio, "LOG_OFF") else None
 tk = verovio.toolkit()
-tk.setOptions({"breaks": "encoded", "pageWidth": 2100, "pageHeight": 2970, "scale": 40, "adjustPageHeight": False,
+tk.setOptions({"breaks": "encoded", "pageWidth": 2100, "pageHeight": 2970, "scale": 40, "adjustPageHeight": True,
                "footer": "none", "header": "auto", "svgHtml5": True, "svgBoundingBoxes": False, "xmlIdSeed": 1})
 assert tk.loadFile(os.path.join(ROOT, "src", "night-wind.mxl"))
 n = tk.getPageCount(); print("pages", n)
